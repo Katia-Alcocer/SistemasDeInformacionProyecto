@@ -1,0 +1,12 @@
+export async function list(db,today) {
+  const [rows]=await db.execute(`SELECT g.*,c.codigo categoria,a.id_usuario id_responsable,u.nombre responsable FROM grupos g JOIN categorias_edad c USING(id_categoria) LEFT JOIN asignaciones_educadoras a ON a.id_grupo=g.id_grupo AND a.responsable=1 AND a.fecha_inicio<=? AND (a.fecha_fin IS NULL OR a.fecha_fin>?) LEFT JOIN usuarios u ON u.id_usuario=a.id_usuario ORDER BY g.id_grupo`,[today,today]);return rows.map(r=>({...r,activo:Boolean(r.activo)}));
+}
+export async function categories(db){const [r]=await db.query('SELECT * FROM categorias_edad ORDER BY id_categoria');return r;}
+export async function find(db,id){const [r]=await db.execute('SELECT * FROM grupos WHERE id_grupo=? FOR UPDATE',[id]);return r[0];}
+export async function categoryExists(db,id){const [r]=await db.execute('SELECT id_categoria FROM categorias_edad WHERE id_categoria=?',[id]);return r.length>0;}
+export async function teacher(db,id){const [r]=await db.execute("SELECT u.id_usuario FROM usuarios u JOIN roles r USING(id_rol) WHERE u.id_usuario=? AND r.codigo='EDUCADORA' AND u.activo=1 AND u.deleted_at IS NULL FOR UPDATE",[id]);return r[0];}
+export async function currentAssignment(db,id,today){const [r]=await db.execute('SELECT * FROM asignaciones_educadoras WHERE id_grupo=? AND responsable=1 AND fecha_inicio<=? AND (fecha_fin IS NULL OR fecha_fin>?) FOR UPDATE',[id,today,today]);return r;}
+export async function insert(db,g){const [r]=await db.execute('INSERT INTO grupos(id_categoria,codigo,nombre,capacidad,activo) VALUES (?,?,?,?,?)',[g.id_categoria,g.codigo,g.nombre,g.capacidad,g.activo]);return r.insertId;}
+export async function update(db,id,g){await db.execute('UPDATE grupos SET id_categoria=?,codigo=?,nombre=?,capacidad=?,activo=? WHERE id_grupo=?',[g.id_categoria,g.codigo,g.nombre,g.capacidad,g.activo,id]);}
+export async function assign(db,id,teacher,today){await db.execute('UPDATE asignaciones_educadoras SET fecha_fin=? WHERE id_grupo=? AND responsable=1 AND (fecha_fin IS NULL OR fecha_fin>?)',[today,id,today]);if(teacher)await db.execute('INSERT INTO asignaciones_educadoras(id_grupo,id_usuario,responsable,fecha_inicio) VALUES (?,?,1,?)',[id,teacher,today]);}
+export async function occupancy(db,id,today){const [r]=await db.execute("SELECT COUNT(*) total FROM historial_grupos h JOIN menores m USING(id_menor) WHERE h.id_grupo=? AND h.fecha_inicio<=? AND (h.fecha_fin IS NULL OR h.fecha_fin>?) AND m.estatus='ACTIVO' AND m.deleted_at IS NULL",[id,today,today]);return r[0].total;}

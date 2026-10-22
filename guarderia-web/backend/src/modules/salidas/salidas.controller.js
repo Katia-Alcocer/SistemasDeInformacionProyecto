@@ -1,0 +1,2 @@
+import {ok} from '../../utils/http.js';
+export const salidasController=service=>({list:async(q,r)=>ok(r,await service.list(q.session.user.id_usuario)),detail:async(q,r)=>ok(r,await service.detail(q.params.id,q.session.user.id_usuario)),exit:async(q,r)=>{const result=await service.exit(q.body,q.get('Idempotency-Key'),q.session.user.id_usuario);if(result.rechazada)return r.status(422).json({data:result,message:result.mensaje,error:{code:result.codigo}});ok(r,result,201);}});

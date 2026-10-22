@@ -1,0 +1,2 @@
+import {ok} from '../../utils/http.js';
+export const recepcionController=s=>({lookup:async(q,r)=>ok(r,await s.lookup(q.params.codigo,q.query.tipo||'CODIGO',q.session.user.id_usuario)),intake:async(q,r)=>{const result=await s.intake(q.body,q.session.user.id_usuario);if(result.resultado==='RECHAZADO')return r.status(422).json({data:result,message:'Ingreso rechazado: '+result.motivos.map(m=>m.mensaje).join('; '),error:{code:'INGRESO_RECHAZADO'}});ok(r,result,201);}});

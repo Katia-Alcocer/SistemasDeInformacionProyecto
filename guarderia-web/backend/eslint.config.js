@@ -1,0 +1,1 @@
+export default [{ignores:['node_modules/**','coverage/**']},{files:['**/*.js'],languageOptions:{ecmaVersion:'latest',sourceType:'module',globals:Object.fromEntries(['Buffer','process','console','setTimeout','clearTimeout','fetch','URL'].map(name=>[name,'readonly']))},rules:{'no-undef':'error','no-unreachable':'error','no-duplicate-imports':'error','constructor-super':'error'}}];

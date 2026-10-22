@@ -1,0 +1,10 @@
+import {z} from 'zod';
+import {positiveId} from '../menores/menores.validation.js';
+const ids=z.array(positiveId).min(1).max(100).refine(a=>new Set(a).size===a.length);
+export const ingredientSchema=z.object({nombre:z.string().trim().min(2).max(100)}).strict();
+export const dishSchema=z.object({nombre:z.string().trim().min(3).max(160),ingredientes:ids,confirmacion_composicion:z.literal(true)}).strict();
+export const reviewSchema=z.object({ingredientes_prohibidos:ids,alcance:z.literal('EXCLUSION_INGREDIENTES'),confirmacion:z.literal(true),observaciones:z.string().trim().min(3).max(1000)}).strict();
+export const withdrawSchema=z.object({confirmacion:z.literal(true),motivo:z.string().trim().min(3).max(1000)}).strict();
+export const transferSchema=z.object({id_asistencia:positiveId,confirmacion_acompanamiento:z.literal(true)}).strict();
+export const exitSchema=transferSchema.omit({id_asistencia:true});
+export const mealSchema=z.object({id_asistencia:positiveId,id_platillo:positiveId.nullable(),tipo_comida:z.enum(['DESAYUNO','COMIDA','MERIENDA']),racion:z.enum(['NADA','CUARTO','MEDIA','TRES_CUARTOS','COMPLETA']),confirmacion_revision:z.literal(true),observaciones:z.string().trim().min(3).max(1000)}).strict().refine(v=>v.racion==='NADA'?v.id_platillo===null:v.id_platillo!==null);

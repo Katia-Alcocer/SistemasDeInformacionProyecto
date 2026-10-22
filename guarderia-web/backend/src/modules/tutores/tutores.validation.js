@@ -1,0 +1,8 @@
+import {z} from 'zod';
+import {positiveId,civil} from '../menores/menores.validation.js';
+export const personSchema=z.object({nombre:z.string().trim().min(2).max(180),telefono:z.string().trim().min(7).max(30).regex(/^[+\d ()-]+$/).nullable().default(null),tipo_identificacion:z.enum(['INE','PASAPORTE','OTRA']).nullable().default(null)}).strict();
+export const personPatch=z.object({nombre:personSchema.shape.nombre.optional(),telefono:z.string().trim().min(7).max(30).regex(/^[+\d ()-]+$/).nullable().optional(),tipo_identificacion:z.enum(['INE','PASAPORTE','OTRA']).nullable().optional(),activo:z.boolean().optional()}).strict().refine(v=>Object.keys(v).length>0);
+const linkBase=z.object({tipo:z.enum(['PRINCIPAL','AUXILIAR']),parentesco:z.string().trim().min(2).max(70),puede_recoger:z.boolean(),restriccion_judicial:z.boolean(),id_documento_restriccion:positiveId.nullable(),fecha_fin:civil.nullable()}).strict();
+export const linkSchema=linkBase.extend({id_persona:positiveId,puede_recoger:z.boolean().default(true),restriccion_judicial:z.boolean().default(false),id_documento_restriccion:positiveId.nullable().default(null),fecha_fin:civil.nullable().default(null)});
+export const linkPatch=linkBase.partial().extend({vigente:z.literal(false).optional()}).refine(v=>Object.keys(v).length>0);
+export const badgePatch=z.object({estado:z.enum(['REVOCADO','EXTRAVIADO'])}).strict();

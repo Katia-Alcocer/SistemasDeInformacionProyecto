@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+coverage/
+private_uploads/
+*.log
+ACCESOS_LOCALES_PRIVADO.md

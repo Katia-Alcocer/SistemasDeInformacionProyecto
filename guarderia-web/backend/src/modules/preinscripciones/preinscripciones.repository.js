@@ -1,0 +1,6 @@
+export async function list(db){const [r]=await db.query('SELECT * FROM preinscripciones ORDER BY id_preinscripcion DESC LIMIT 500');return r;}
+export async function find(db,id){const [r]=await db.execute('SELECT * FROM preinscripciones WHERE id_preinscripcion=? FOR UPDATE',[id]);return r[0];}
+export async function policy(db){const [r]=await db.query('SELECT * FROM configuracion_operativa WHERE id_config=1');return r[0];}
+export async function insert(db,p,today){const [r]=await db.execute('INSERT INTO preinscripciones(nombre_contacto,telefono_contacto,email_contacto,fecha_probable_parto,fecha_solicitud,observaciones) VALUES (?,?,?,?,?,?)',[p.nombre_contacto,p.telefono_contacto,p.email_contacto,p.fecha_probable_parto,today,p.observaciones]);return r.insertId;}
+export async function update(db,id,p){await db.execute('UPDATE preinscripciones SET nombre_contacto=?,telefono_contacto=?,email_contacto=?,fecha_probable_parto=?,observaciones=?,estado=? WHERE id_preinscripcion=?',[p.nombre_contacto,p.telefono_contacto,p.email_contacto,p.fecha_probable_parto,p.observaciones,p.estado,id]);}
+export async function linked(db,id){const [r]=await db.execute('SELECT id_menor FROM menores WHERE id_preinscripcion=?',[id]);return r.length>0;}

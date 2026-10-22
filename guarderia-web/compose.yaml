@@ -1,0 +1,111 @@
+name: guarderia
+
+x-mysql: &mysql
+  build:
+    context: .
+    dockerfile: docker/mysql/Dockerfile
+  command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--default-time-zone=+00:00"]
+  healthcheck:
+    test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysql --protocol=TCP -h127.0.0.1 -uroot -Nse \"SELECT COUNT(*) = 43 FROM information_schema.tables WHERE table_schema='guarderia' AND table_type='BASE TABLE'\" | grep -qx 1"]
+    interval: 5s
+    timeout: 5s
+    retries: 30
+    start_period: 60s
+
+services:
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: "3306"
+    ports:
+      - "127.0.0.1:${PHPMYADMIN_PORT:-8081}:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    init: true
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en .env}
+      DOCUMENT_ENCRYPTION_KEY: ${DOCUMENT_ENCRYPTION_KEY:?Configura DOCUMENT_ENCRYPTION_KEY en .env}
+      UPLOAD_PRIVATE_DIR: /app/private_uploads
+      COOKIE_SECURE: "false"
+      FRONTEND_ORIGIN: http://localhost:5173
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: guarderia
+      DB_USER: guarderia_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:?Configura APP_DB_PASSWORD en .env}
+      TZ: America/Mexico_City
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/tests:/app/tests
+      - ./backend/views:/app/views
+      - private_uploads:/app/private_uploads
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "--input-type=module", "-e", "const r = await fetch('http://127.0.0.1:3000/api/v1/health'); process.exit(r.ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 7s
+      retries: 10
+
+  frontend:
+    build: ./frontend
+    init: true
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.js:/app/vite.config.js:ro
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  mysql:
+    <<: *mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configura MYSQL_ROOT_PASSWORD en .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Configura APP_DB_PASSWORD en .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mysql-test:
+    <<: *mysql
+    profiles: ["test"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_TEST_ROOT_PASSWORD:?Configura MYSQL_TEST_ROOT_PASSWORD en .env}
+      APP_DB_PASSWORD: ${APP_TEST_DB_PASSWORD:?Configura APP_TEST_DB_PASSWORD en .env}
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+
+  integration:
+    build: ./backend
+    profiles: ["test"]
+    environment:
+      NODE_ENV: test
+      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en .env}
+      DB_HOST: mysql-test
+      DB_PORT: "3306"
+      DB_NAME: guarderia
+      DB_USER: guarderia_app
+      DB_PASSWORD: ${APP_TEST_DB_PASSWORD:?Configura APP_TEST_DB_PASSWORD en .env}
+      RUN_DB_TESTS: "true"
+    volumes:
+      - ./backend/tests:/app/tests
+    depends_on:
+      mysql-test:
+        condition: service_healthy
+    command: ["npm", "test"]
+
+volumes:
+  mysql_data:
+  mysql_test_data:
+  private_uploads:

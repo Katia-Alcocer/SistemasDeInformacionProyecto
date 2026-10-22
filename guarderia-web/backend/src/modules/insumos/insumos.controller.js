@@ -1,0 +1,2 @@
+import {ok} from '../../utils/http.js';
+export const insumosController=s=>({types:async(_q,r)=>ok(r,await s.types()),list:async(q,r)=>ok(r,await s.list(q.params.id)),requirements:async(q,r)=>ok(r,await s.requirements(q.params.id,q.body,q.session.user.id_usuario)),entry:async(q,r)=>ok(r,await s.movement(q.body,q.get('Idempotency-Key'),q.session.user,q.session.user.rol==='EDUCADORA'),201),notice:async(q,r)=>ok(r,await s.notice(q.body,q.session.user,q.session.user.rol==='EDUCADORA'),201)});

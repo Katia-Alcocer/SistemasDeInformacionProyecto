@@ -1,0 +1,20 @@
+const error={description:'Error normalizado',content:{'application/json':{schema:{type:'object',properties:{data:{type:'null'},message:{type:'string'},error:{type:'object',properties:{code:{type:'string'}}}}},example:{data:null,message:'No tienes permiso para esta operación',error:{code:'FORBIDDEN'}}}}};
+const json=(ref,required=true)=>({required,content:{'application/json':{schema:{$ref:`#/components/schemas/${ref}`}}}});
+const success={description:'Resultado envuelto en data, message y error (null)'};
+const operation=(summary,options={})=>({summary,security:[{session:[]}],responses:{200:success,400:error,401:error,403:error,404:error,409:error,422:error,500:error},...options});
+const csrf={name:'X-CSRF-Token',in:'header',required:true,schema:{type:'string'},description:'Valor devuelto por login o me'};
+const id={name:'id',in:'path',required:true,schema:{type:'integer',minimum:1}};
+const userProperties={nombre:{type:'string',minLength:2,maxLength:160},email:{type:'string',format:'email',maxLength:190},rol:{type:'string',enum:['ADMIN','RECEPCION','EDUCADORA','ENFERMERIA']},password:{type:'string',minLength:12,maxLength:72,writeOnly:true,description:'Máximo 72 bytes UTF-8'},activo:{type:'boolean'}};
+const groupProperties={id_categoria:{type:'integer',minimum:1},codigo:{type:'string',maxLength:20,pattern:'^[A-Za-z0-9_-]+$'},nombre:{type:'string',minLength:2,maxLength:100},capacidad:{type:'integer',minimum:1,maximum:65535},activo:{type:'boolean',default:false},id_responsable:{type:['integer','null'],minimum:1}};
+export const openapi={openapi:'3.1.0',info:{title:'Guardería — entrega 1',version:'1.0.0',description:'Gestión de usuarios y grupos solo ADMIN. Auth/me/logout disponibles para los cuatro roles. Sesión JWT 8h, revocable. No hay JWT en JSON.'},servers:[{url:'/api/v1'}],components:{securitySchemes:{session:{type:'apiKey',in:'cookie',name:'guarderia_session'}},schemas:{Login:{type:'object',additionalProperties:false,required:['email','password'],properties:{email:{type:'string',format:'email'},password:{type:'string',maxLength:72,writeOnly:true}}},Usuario:{type:'object',additionalProperties:false,required:['nombre','email','rol','password'],properties:userProperties},UsuarioPatch:{type:'object',additionalProperties:false,minProperties:1,properties:userProperties},Grupo:{type:'object',additionalProperties:false,required:['id_categoria','codigo','nombre','capacidad'],properties:groupProperties},GrupoPatch:{type:'object',additionalProperties:false,minProperties:1,properties:groupProperties}}},paths:{
+  '/health':{get:operation('Disponibilidad de API y MySQL',{security:[],responses:{200:success,503:error}})},
+  '/auth/login':{post:operation('Iniciar sesión; devuelve user y csrfToken y cookie HttpOnly',{security:[],requestBody:json('Login'),responses:{200:success,400:error,401:error,403:error,429:error,500:error}})},
+  '/auth/me':{get:operation('Perfil actual y csrfToken')},
+  '/auth/logout':{post:operation('Revocar sesión y borrar cookie',{parameters:[csrf],responses:{204:{description:'Cierre sin cuerpo'},401:error,403:error,500:error}})},
+  '/usuarios':{get:operation('Listar personal (ADMIN)'),post:operation('Crear usuario (ADMIN)',{parameters:[csrf],requestBody:json('Usuario'),responses:{201:success,400:error,401:error,403:error,409:error,500:error}})},
+  '/usuarios/{id}':{patch:operation('Editar o dar baja lógica; revoca sesiones (ADMIN)',{parameters:[id,csrf],requestBody:json('UsuarioPatch')})},
+  '/grupos':{get:operation('Listar grupos (ADMIN)'),post:operation('Crear grupo; activo requiere responsable EDUCADORA (ADMIN)',{parameters:[csrf],requestBody:json('Grupo'),responses:{201:success,400:error,401:error,403:error,409:error,422:error,500:error}})},
+  '/grupos/{id}':{patch:operation('Editar, desactivar o reasignar responsable (ADMIN)',{parameters:[id,csrf],requestBody:json('GrupoPatch')})},
+  '/grupos/categorias':{get:operation('Catálogo de categorías G0–G3 (ADMIN)')},
+  '/reportes/grupos':{servers:[{url:'/'}],get:operation('Reporte HTML EJS de grupos (ADMIN)',{responses:{200:{description:'HTML imprimible con datos persistidos'},401:error,403:error,500:error}})},
+}};

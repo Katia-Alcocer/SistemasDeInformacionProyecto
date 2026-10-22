@@ -1,0 +1,2 @@
+import {ok} from '../../utils/http.js';
+export const aulasController=s=>({groups:async(q,r)=>ok(r,await s.groups(q.session.user)),monitor:async(q,r)=>ok(r,await s.monitor(q.params.id,q.session.user)),activities:async(q,r)=>ok(r,await s.activities(q.params.id,q.session.user,q.query.fecha)),createActivity:async(q,r)=>ok(r,await s.createActivity(q.params.id,q.body,q.get('Idempotency-Key'),q.session.user),201)});
