@@ -2,23 +2,63 @@
 
 Documentación única del proyecto. La especificación principal completa se conserva al final. Los accesos y contraseñas locales están exclusivamente en ACCESOS_LOCALES_PRIVADO.md y .env, ambos excluidos de Git.
 
+## S6: anulación auditable de pagos
+
+Se añadió `POST /api/v1/pagos/:id/anulacion` para ADMIN, con motivo obligatorio, confirmación, CSRF, clave idempotente, actor/hora del servidor y evento de auditoría. La operación bloquea cuota y pago en una transacción; cambia el pago a ANULADO, por lo que deja de reducir el saldo, y devuelve el saldo recalculado. No modifica ni reconstruye `pagos.comprobante`: el recibo original conserva sus importes y datos de registro, mientras presenta el estado y motivo actuales.
+
+La migración aditiva `database/migrations/012_anulacion_pagos.sql` añade campos para actor, hora, hash/clave idempotente y respuesta de repetición. En una base existente, desde `guarderia-web`:
+
+```powershell
+docker compose cp database/migrations/012_anulacion_pagos.sql mysql:/tmp/012.sql
+docker compose exec mysql mysql -uroot -p guarderia
+```
+
+En MySQL: `SOURCE /tmp/012.sql;`. Migración aplicada en mysql-test y desarrollo local. OpenAPI acumulado 4.5.0; 142 pruebas backend y 48 UI pasan.
+
+## S6: exportación de auditoría de expediente
+
+ADMIN puede descargar `GET /api/v1/admin/auditoria-dif/menor/:id` desde Expedientes. Incluye detalle completo relacionado y registra `EXPORTAR_AUDITORIA`; no adjunta archivos ni rutas/hash privados. El usuario autorizó explícitamente este nivel de detalle para ADMIN. También existe `GET /reportes/expediente/:id`, un reporte EJS imprimible con datos administrativos, CURP parcialmente enmascarada, metadatos de documentos, grupos, autorizados y gafetes; registra la exportación y omite archivos privados. Los detalles clínicos y el historial completo se consultan en sus pantallas/módulos autorizados, no forman parte de este resumen imprimible. RECEPCION y demás roles reciben 403. OpenAPI acumulado 4.5.0. Suite backend y prueba de acceso/render pasaron.
+
+## S6: prórrogas de cuotas
+
+Se añadió `POST /api/v1/prorrogas` para ADMIN, con CSRF, confirmación, `Idempotency-Key`, motivo obligatorio, hora/actor del servidor y auditoría transaccional. Una prórroga solo puede mover el vencimiento efectivo hacia adelante; rechaza cuotas anuladas, fechas iguales o anteriores y reintentos con contenido distinto. El estado de cuenta muestra el historial de autorizaciones. OpenAPI acumulado tras añadir el aviso financiero de recepción: **4.2.0**.
+
+La migración aditiva `database/migrations/011_prorrogas_idempotencia.sql` añade las claves/hash idempotentes sin borrar ni reescribir filas previas. En una base existente, desde `guarderia-web`, copia y ejecuta el SQL:
+
+```powershell
+docker compose cp database/migrations/011_prorrogas_idempotencia.sql mysql:/tmp/011.sql
+docker compose exec mysql mysql -uroot -p guarderia
+```
+
+En el prompt de MySQL ejecuta `SOURCE /tmp/011.sql;`. Los volúmenes existentes no ejecutan automáticamente scripts de inicialización. Las bases nuevas lo aplican desde el Dockerfile MySQL. No borres ni recrees volúmenes.
+
+Implementación añadida y verificada en Docker: 142/142 pruebas backend y 48/48 pruebas UI pasan. Migraciones 011–012 aplicadas en `mysql-test` y desarrollo; API local reiniciada, saludable y con OpenAPI 4.5.0. Compilación y ESLint frontend/backend también pasan. Backup/restore y rendimiento continúan pendientes de verificación.
+
+## S6: aviso de adeudo en recepción
+
+La ficha `GET /api/v1/recepcion/menor/:codigo` incluye un resumen de cuotas pendientes y vencidas en MXN. Recepción puede ver el saldo pendiente total y el importe vencido, tomando en cuenta pagos REGISTRADO y la fecha extendida más reciente. La pantalla aclara que el aviso no bloquea el ingreso y que no se ha enviado una notificación de cobro. Solo expone montos agregados y conteos, sin referencias ni historial de pagos. API accesible con los permisos ADMIN/RECEPCION ya aplicados a la ficha.
+
+La regla usa el vencimiento efectivo anterior a la fecha operativa para contar deuda vencida; cualquier cuota vigente con saldo positivo aparece como pendiente, incluso si su vencimiento aún no llega. Los pagos anulados no reducen el saldo. Suite S3/backend y UI aprobadas.
+
+En Finanzas, ADMIN dispone también de una tabla de todas las cuotas vigentes con saldo: menor, periodo, vencimiento efectivo, estado y saldo. Las cuotas ANULADAS quedan fuera de esa lista; el detalle individual sigue disponible para consultar pagos y prórrogas.
+
 ## Inicio de S6: cuotas semanales y pagos parciales
 
-Disponible solo para ADMIN en `/finanzas`, con acceso **Cuotas y pagos** desde Inicio. Este incremento cubre cuota manual, estado de cuenta, pago parcial/total y comprobante EJS imprimible. S6 continúa pendiente de prórrogas por API, avisos de mora, anulaciones/correcciones versionadas, exportaciones completas de auditoría/expediente, respaldo/restauración y verificaciones de rendimiento/entrega. La interfaz existente de baja de menores conserva expedientes e historial.
+Disponible solo para ADMIN en `/finanzas`, con acceso **Cuotas y pagos** desde Inicio. Cubre cuota manual, estado de cuenta, pago parcial/total, comprobante EJS imprimible y anulación auditable elegida por el usuario (motivo, conservación del recibo original y recálculo del saldo). Pruebas backend/UI, compilación y ESLint pasan; quedan pendientes backup/restore y mediciones de rendimiento. Tarifa semanal, día de corte y reglas adicionales de mora no están definidos; no se generan cargos automáticos ni recargos.
 
 Decisiones identificadas antes de implementar: la especificación no define moneda, tarifa semanal ni día de corte. **El usuario confirmó pesos mexicanos (MXN)**; se muestra en pantalla, respuestas financieras y comprobantes nuevos. Tarifa y día de inicio permanecen pendientes. No se inventa una tarifa ni se generan cargos automáticos: ADMIN captura el importe y siete días consecutivos inclusivos, con vencimiento igual o posterior al inicio, sin solaparse con otra cuota vigente del menor. Se admiten periodos capturados históricos/futuros, pero la creación queda con hora real del servidor; no se fabrica una fecha pasada de emisión. Todos los importes de este módulo usan MXN, sin conversiones ni multimoneda. Solo se crean cuotas a menores ACTIVO; una baja posterior no borra deuda ni impide liquidar una cuota existente.
 
-Los importes de API son **strings decimales** con punto, hasta dos decimales y máximo de almacenamiento 9999999999.99. Se rechazan números JSON, negativos, notación exponencial, comas y decimales excedentes. La cuota puede ser cero; un pago debe ser positivo y no superar el saldo. Los cálculos convierten a centavos enteros exactos dentro del rango seguro de JavaScript; no suman fracciones binarias. La cuota no se sobreescribe al pagar: saldo = importe menos pagos REGISTRADO, y los pagos ANULADO históricos no reducen deuda. LIQUIDADA/VENCIDA/PENDIENTE son estados derivados; la columna SQL de cuota conserva PENDIENTE/ANULADA. Vence cuando la fecha efectiva es anterior a hoy en la zona operativa; una prórroga histórica solo extiende, nunca acorta el vencimiento. El flujo para autorizar nuevas prórrogas todavía no se declara implementado.
+Los importes de API son **strings decimales** con punto, hasta dos decimales y máximo de almacenamiento 9999999999.99. Se rechazan números JSON, negativos, notación exponencial, comas y decimales excedentes. La cuota puede ser cero; un pago debe ser positivo y no superar el saldo. Los cálculos convierten a centavos enteros exactos dentro del rango seguro de JavaScript; no suman fracciones binarias. La cuota no se sobreescribe al pagar: saldo = importe menos pagos REGISTRADO, y los pagos ANULADO históricos no reducen deuda. LIQUIDADA/VENCIDA/PENDIENTE son estados derivados; la columna SQL de cuota conserva PENDIENTE/ANULADA. Vence cuando la fecha efectiva es anterior a hoy en la zona operativa; una prórroga histórica solo extiende, nunca acorta el vencimiento. El aviso de recepción presenta deuda pendiente/vencida sin bloquear asistencia ni fingir contacto externo.
 
 Creación de cuotas/pagos exige confirmación, CSRF e Idempotency-Key de 8–64 caracteres, asociada al actor y contenido normalizado. Un reintento exacto recupera el registro original; importe equivalente 30 y 30.00 es la misma cantidad, mientras cambiar contenido con la misma clave devuelve 409. El bloqueo de cuota y bloqueo operativo compartido serializan solapamientos y cobros; dos pagos que sobrepasarían el saldo no pueden guardarse ambos. Cuota anulada rechaza pagos. El sistema no autoriza sobrepago, crédito excedente ni pagos sobre varias cuotas en una sola operación.
 
-Métodos capturados: EFECTIVO/TRANSFERENCIA/TARJETA/OTRO, con referencia opcional de hasta 150 caracteres. Es un **registro manual** de pago recibido, sin pasarela, débito automático ni validación bancaria simulada. No se capturan números de tarjeta, CVV ni datos de acceso bancario. Fecha/actor provienen del servidor/sesión. No hay edición, borrado ni anulación por API en este incremento. Cuotas, pagos, consultas y comprobantes se auditan dentro de transacciones.
+Métodos capturados: EFECTIVO/TRANSFERENCIA/TARJETA/OTRO, con referencia opcional de hasta 150 caracteres. Es un **registro manual** de pago recibido, sin pasarela, débito automático ni validación bancaria simulada. No se capturan números de tarjeta, CVV ni datos de acceso bancario. Fecha/actor provienen del servidor/sesión. La anulación cambia el pago a ANULADO con motivo, no elimina el registro ni produce un reembolso; el saldo pendiente se recalcula y el comprobante original se mantiene intacto. Cuotas, pagos, consultas y comprobantes se auditan dentro de transacciones.
 
 Cada pago conserva una instantánea del menor, periodo, cuota, importe pagado, acumulado, saldo después, método/referencia y responsable/hora UTC. Los pagos posteriores o cambios de nombre no reescriben ese comprobante. El documento muestra además el estado actual del registro de pago, sin ocultar una anulación histórica. El comprobante anterior sin instantánea devuelve 409; no se reconstruye. Es un registro interno imprimible/guardable como PDF desde el navegador, no una confirmación bancaria ni una integración fiscal.
 
 La UI conserva formulario y clave ante fallo de red o sobrepago rechazado, actualiza saldos después del éxito y desmarca la confirmación. No permite repetir un guardado exitoso sin nueva interacción. Las respuestas de otra cuota seleccionada no sustituyen su ficha actual al cambiar de selección durante una consulta o pago.
 
-API ADMIN bajo `/api/v1`: `GET /cuotas?id_menor=ID` (filtro opcional), `GET /cuotas/:id` (incluye historial de pagos), `POST /cuotas`, `POST /pagos`, `GET /pagos/:id`; comprobante `GET /reportes/pagos/:id`. OpenAPI acumulado **4.0.0**, contratos y errores documentados. Nuevos módulos `pagos.{validation,repository,service,routes}.js`, `Finanzas.jsx`, `views/ejs/pago.ejs` y pruebas S6.
+API ADMIN bajo `/api/v1`: `GET /cuotas?id_menor=ID` (filtro opcional), `GET /cuotas/:id` (incluye historial de pagos), `POST /cuotas`, `POST /pagos`, `POST /pagos/:id/anulacion`, `GET /pagos/:id`; comprobante `GET /reportes/pagos/:id`. OpenAPI acumulado **4.3.0**, contratos y errores documentados. Nuevos módulos `pagos.{validation,repository,service,routes}.js`, `Finanzas.jsx`, `views/ejs/pago.ejs` y pruebas S6.
 
 Migración `database/migrations/010_finanzas.sql` aplicada en desarrollo/mysql-test sin borrar datos: añade clave/hash a cuotas/pagos y `pagos.comprobante JSON NULL`. Conserva 43 tablas, permisos, volúmenes y claves. El Dockerfile MySQL incluye su ejecución para nuevos volúmenes. Otras bases existentes requieren:
 
