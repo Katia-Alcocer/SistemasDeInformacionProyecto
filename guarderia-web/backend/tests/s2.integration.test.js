@@ -100,6 +100,15 @@ describe.skipIf(process.env.RUN_DB_TESTS!=='true')('S2: admisión y archivos pri
     expect((await send('post',`/api/v1/menores/${child.id_menor}/autorizados`,{...link(people[0]),fecha_fin:today})).status).toBe(422);
     expect((await send('post',`/api/v1/menores/${child.id_menor}/autorizados`,link(people[0]))).status).toBe(201);
   });
+  test('alta de persona nueva la vincula atómicamente como responsable de recolección',async()=>{
+    const data={nombre:'Madre ficticia integrada',telefono:'5551234567',email:null,tipo_identificacion:null,tipo:'PRINCIPAL',parentesco:'Madre',puede_recoger:true,restriccion_judicial:false,id_documento_restriccion:null,fecha_fin:null};
+    const r=await send('post',`/api/v1/menores/${child.id_menor}/autorizados/persona`,data);
+    expect(r.status).toBe(201);expect(r.body.data).toMatchObject({nombre:data.nombre,tipo:'PRINCIPAL',parentesco:'Madre',puede_recoger:true});
+    const [linked]=await db.execute('SELECT COUNT(*) total FROM menor_persona WHERE id_menor=? AND id_persona=?',[child.id_menor,r.body.data.id_persona]);expect(linked[0].total).toBe(1);
+    const invalid={...data,nombre:'Contacto no creado',restriccion_judicial:true};
+    expect((await send('post',`/api/v1/menores/${child.id_menor}/autorizados/persona`,invalid)).status).toBe(422);
+    const [rolledBack]=await db.execute('SELECT COUNT(*) total FROM personas WHERE nombre=?',[invalid.nombre]);expect(rolledBack[0].total).toBe(0);
+  });
   test('restricción judicial exige respaldo y prohíbe recoger; documento del mismo menor',async()=>{
     const data={id_persona:people[3].id_persona,tipo:'PRINCIPAL',parentesco:'Familiar',restriccion_judicial:true,puede_recoger:true,id_documento_restriccion:document.id_documento};
     expect((await send('post',`/api/v1/menores/${child.id_menor}/autorizados`,data)).status).toBe(422);

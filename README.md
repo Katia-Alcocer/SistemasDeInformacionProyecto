@@ -6,7 +6,7 @@ Documentación única del proyecto. La especificación principal completa se con
 
 La preinscripción guarda exclusivamente el nombre completo y teléfono de la madre, la fecha probable de parto, y correo, posible nombre y observaciones opcionales. El posible nombre es una referencia no oficial: no identifica al bebé ni se copia a su expediente. La fecha probable es solo una estimación; no calcula edad ni reemplaza la fecha real de nacimiento. No se crean filas en `menores` durante el embarazo.
 
-Después del nacimiento, ADMIN captura por separado el nombre real, fecha real de nacimiento y demás datos reales del menor. Solo permite seleccionar solicitudes CONFIRMADAS, revisar los datos de contacto de la madre y confirmar su identidad. La relación con `menores.id_preinscripcion` conserva la preferencia de admisión; una solicitud solo puede vincularse a un menor. En el paso de personas autorizadas, `POST /api/v1/menores/:id/autorizados/madre` reutiliza una persona existente o registra a la madre con los datos guardados y la vincula en una transacción. Autorizarla para recoger es una decisión separada y queda sin marcar por defecto. La madre y el menor conservan sus registros y auditoría; no se fabrican CURP, nacimiento, documentos ni expedientes prenatales.
+Después del nacimiento, ADMIN captura por separado el nombre real, fecha real de nacimiento y demás datos reales del menor. Solo permite seleccionar solicitudes CONFIRMADAS, revisar los datos de contacto de la madre y confirmar su identidad. La relación con `menores.id_preinscripcion` conserva la preferencia de admisión; una solicitud solo puede vincularse a un menor. En el paso de personas autorizadas, `POST /api/v1/menores/:id/autorizados/madre` reutiliza una persona existente o registra a la madre con los datos guardados y la vincula en una transacción. Autorizarla para recoger es una decisión separada y queda sin marcar por defecto. Para registrar manualmente otro padre o responsable, `POST /api/v1/menores/:id/autorizados/persona` guarda sus datos y el vínculo con el alumno en una sola transacción; `puede_recoger` se confirma explícitamente en el formulario. La madre y el menor conservan sus registros y auditoría; no se fabrican CURP, nacimiento, documentos ni expedientes prenatales.
 
 La migración aditiva `database/migrations/013_preinscripcion_materno.sql` añade `preinscripciones.posible_nombre_bebe` y `personas.email`; conserva filas y relaciones anteriores y se puede repetir. En una base ya existente, desde `guarderia-web`:
 
@@ -592,6 +592,7 @@ Prefijo /api/v1. Todos los cambios exigen CSRF y ADMIN. Esquemas completos en /a
 | GET / POST / PATCH | /personas, /personas/:id | Personas reutilizables; lectura ADMIN/RECEPCION |
 | GET / POST | /personas/:id/identificacion | Identificación privada, ADMIN |
 | GET / POST / PATCH | /menores/:id/autorizados, /menores/:id/autorizados/:linkId | Vínculos; lectura ADMIN/RECEPCION |
+| POST | /menores/:id/autorizados/persona | Crear responsable y vincularlo en una transacción, ADMIN |
 | POST / PATCH | /menores/:id/gafetes, /menores/:id/gafetes/:badgeId | Emisión y revocación, ADMIN |
 
 Los listados iniciales se limitan a 500 registros; paginación y búsqueda de conjuntos mayores quedan pendientes. No se incorporaron datos ficticios de menores a la base de desarrollo; los fixtures se ejecutan exclusivamente contra mysql-test.
@@ -1572,4 +1573,3 @@ INSERT INTO tipos_insumo(nombre,unidad) VALUES
 El contenido obligatorio se consolidó de: (1) *Documentación Técnica e Inicial de Arquitectura*, 5 páginas, con RF-01 a RF-08, RNF-01 a RNF-05, módulos, arquitectura y plan original de cuatro sprints; (2) *Especificación de Requerimientos del Sistema de Guardería*, 7 páginas, transcripción y reglas detalladas de recepción, salud, insumos, personas y horarios; (3) *Planificación Estratégica de Sprints, Épicas e Historias de Usuario*, con HU-01 a HU-12, contratos API, seis fechas y Definition of Done; (4) *schema_completo_v2.sql*, 41 tablas; y (5) *README_esquema_v2.md*, notas de diseño, limitaciones y pruebas pendientes.
 
 **El presente documento reemplaza esos archivos como contexto de implementación para Codex**, pero conserva las ambigüedades identificadas; no convierte decisiones provisionales en requisitos expresos. Codex debe informar las dudas bloqueantes y registrar sus decisiones.
-

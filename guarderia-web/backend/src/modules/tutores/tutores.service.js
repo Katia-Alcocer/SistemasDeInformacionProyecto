@@ -5,7 +5,7 @@ import {transaction,lockAdministration,audit,civilDate} from '../../utils/transa
 import {requireChild} from '../menores/menores.service.js';
 const active=(link,today)=>link.fecha_inicio<=today&&(!link.fecha_fin||link.fecha_fin>today);
 export function tutoresService(pool){
-  async function saveLink(child,id,input,actor){return transaction(pool,async db=>{
+  async function saveLink(db,child,id,input,actor){
     await lockAdministration(db);await requireChild(db,child,true);const today=civilDate();const before=id?await repo.findLink(db,child,id):null;
     if(id&&!before)throw new HttpError(404,'NOT_FOUND','Vínculo no encontrado para este menor');
     if(before&&!active(before,today))throw new HttpError(409,'LINK_CLOSED','El vínculo terminó; crea uno nuevo para conservar historia');
@@ -19,10 +19,16 @@ export function tutoresService(pool){
     if(id)await repo.updateLink(db,id,next);else id=await repo.insertLink(db,child,next,today);
     await audit(db,actor,'menor_persona',id,before?'ACTUALIZAR':'CREAR',{id_menor:child,id_persona:next.id_persona,tipo:next.tipo,puede_recoger:Boolean(next.puede_recoger),restriccion_judicial:Boolean(next.restriccion_judicial),vigente:willBeActive,fecha_fin:next.fecha_fin});
     return (await repo.links(db,child)).find(v=>v.id_vinculo===Number(id));
-  });}
+  }
   return {
     people:role=>repo.people(pool,role==='ADMIN'),
     createPerson:async(input,actor)=>transaction(pool,async db=>{await lockAdministration(db);const id=await repo.insertPerson(db,input);await audit(db,actor,'personas',id,'CREAR');return repo.person(db,id);}),
+    createAndLink:(child,input,actor)=>transaction(pool,async db=>{
+      await lockAdministration(db);await requireChild(db,child,true);
+      const personId=await repo.insertPerson(db,{nombre:input.nombre,telefono:input.telefono,email:input.email,tipo_identificacion:input.tipo_identificacion});
+      await audit(db,actor,'personas',personId,'CREAR');
+      return saveLink(db,child,null,{id_persona:personId,tipo:input.tipo,parentesco:input.parentesco,puede_recoger:input.puede_recoger,restriccion_judicial:input.restriccion_judicial,id_documento_restriccion:input.id_documento_restriccion,fecha_fin:input.fecha_fin},actor);
+    }),
     updatePerson:async(id,input,actor)=>transaction(pool,async db=>{await lockAdministration(db);const before=await repo.person(db,id);if(!before)throw new HttpError(404,'NOT_FOUND','Persona no encontrada');await repo.updatePerson(db,id,{...before,...input});const after=await repo.person(db,id);await audit(db,actor,'personas',id,'ACTUALIZAR',{antes:before,despues:after,campos:Object.keys(input)});return after;}),
     linkMother:(child,input,actor)=>transaction(pool,async db=>{
       await lockAdministration(db);const record=await requireChild(db,child,true);if(!record.id_preinscripcion)throw new HttpError(409,'NO_PREINSCRIPTION','El expediente no tiene una solicitud prenatal vinculada');
@@ -39,7 +45,7 @@ export function tutoresService(pool){
       return (await repo.links(db,child)).find(v=>Number(v.id_vinculo)===Number(linkId));
     }),
     list:async id=>{await requireChild(pool,id);return {autorizados:(await repo.links(pool,id)).map(v=>({...v,vigente:active(v,civilDate())})),gafetes:await repo.badges(pool,id)};},
-    link:(child,input,actor)=>saveLink(child,null,input,actor),updateLink:(child,id,input,actor)=>saveLink(child,id,input,actor),
+    link:(child,input,actor)=>transaction(pool,db=>saveLink(db,child,null,input,actor)),updateLink:(child,id,input,actor)=>transaction(pool,db=>saveLink(db,child,id,input,actor)),
     badge:async(child,actor)=>transaction(pool,async db=>{await lockAdministration(db);await requireChild(db,child,true);const list=await repo.badges(db,child);const policy=await repo.policy(db);const max=Math.min(policy.max_gafetes,3);const number=Array.from({length:max},(_,i)=>i+1).find(n=>!list.some(b=>b.numero===n));if(!number)throw new HttpError(422,'BADGE_LIMIT','No hay números de gafete disponibles; se conservan los emitidos');const code=randomBytes(24).toString('hex');const id=await repo.insertBadge(db,child,number,createHash('sha256').update(code).digest('hex'));await audit(db,actor,'gafetes',id,'EMITIR',{id_menor:child,numero:number});return {id_gafete:id,numero:number,codigo:code,estado:'ACTIVO',aviso:'Guarda el código ahora; no se vuelve a mostrar'};}),
     badgeState:async(child,id,state,actor)=>transaction(pool,async db=>{await lockAdministration(db);await requireChild(db,child,true);if(!await repo.setBadgeState(db,child,id,state))throw new HttpError(404,'NOT_FOUND','Gafete no encontrado para este menor');await audit(db,actor,'gafetes',id,'CAMBIAR_ESTADO',{id_menor:child,estado:state});return {id_gafete:Number(id),estado:state};}),
   };
