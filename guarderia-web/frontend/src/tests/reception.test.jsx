@@ -28,6 +28,18 @@ test('lesión vuelve obligatoria la captura de quien lo lleva',async()=>{
   await userEvent.click(await screen.findByRole('button',{name:'Agregar lesión'}));
   expect(screen.getByLabelText('Nombre de quien lo lleva (obligatorio)').required).toBe(true);expect(screen.getByLabelText('Parentesco de quien lo lleva').required).toBe(true);
 });
+test('recepción muestra adeudo sin bloquear el ingreso',async()=>{
+  const data={...ficha(),aviso_financiero:{cuotas_pendientes:2,saldo_pendiente:'50.00',cuotas_vencidas:1,saldo_vencido:'20.00',moneda:'MXN'}};
+  const fetchMock=vi.fn(async(path,options)=>{
+    if(path.endsWith('/auth/me'))return response(200,{user:{nombre:'Recepción',rol:'RECEPCION'},csrfToken:'csrf'});
+    if(options?.method==='POST')return response(201,{id_intento:56,id_asistencia:78,resultado:'ACEPTADO',fecha_operativa:'2026-10-21',hora_servidor:'08:15:00',motivos:[]});
+    return response(200,data);
+  });vi.stubGlobal('fetch',fetchMock);render(<MemoryRouter initialEntries={['/recepcion']}><App/></MemoryRouter>);
+  await userEvent.type(await screen.findByLabelText('Código o ID del menor'),'FICTICIO');await userEvent.click(screen.getByRole('button',{name:'Buscar menor'}));
+  expect(await screen.findByText('Aviso administrativo de cuotas pendientes')).toBeTruthy();expect(screen.getByText(/Este aviso no bloquea el ingreso/)).toBeTruthy();
+  await userEvent.click(await screen.findByLabelText('Realicé la inspección en cunero con privacidad y protocolo'));await userEvent.click(screen.getByRole('button',{name:'Validar y registrar ingreso'}));
+  expect(await screen.findByRole('heading',{name:'Ingreso aceptado'})).toBeTruthy();
+});
 test('enfermería requiere documento y revisión explícita para guardar receta',async()=>{
   const fetchMock=vi.fn(async(path,options)=>{
     if(path.endsWith('/auth/me'))return response(200,{user:{nombre:'Enfermería',rol:'ENFERMERIA'},csrfToken:'csrf'});

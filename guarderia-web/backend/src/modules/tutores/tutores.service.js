@@ -21,9 +21,23 @@ export function tutoresService(pool){
     return (await repo.links(db,child)).find(v=>v.id_vinculo===Number(id));
   });}
   return {
-    people:()=>repo.people(pool),
+    people:role=>repo.people(pool,role==='ADMIN'),
     createPerson:async(input,actor)=>transaction(pool,async db=>{await lockAdministration(db);const id=await repo.insertPerson(db,input);await audit(db,actor,'personas',id,'CREAR');return repo.person(db,id);}),
     updatePerson:async(id,input,actor)=>transaction(pool,async db=>{await lockAdministration(db);const before=await repo.person(db,id);if(!before)throw new HttpError(404,'NOT_FOUND','Persona no encontrada');await repo.updatePerson(db,id,{...before,...input});const after=await repo.person(db,id);await audit(db,actor,'personas',id,'ACTUALIZAR',{antes:before,despues:after,campos:Object.keys(input)});return after;}),
+    linkMother:(child,input,actor)=>transaction(pool,async db=>{
+      await lockAdministration(db);const record=await requireChild(db,child,true);if(!record.id_preinscripcion)throw new HttpError(409,'NO_PREINSCRIPTION','El expediente no tiene una solicitud prenatal vinculada');
+      const pre=await repo.preinscriptionForChild(db,child);if(!pre||pre.estado!=='CONFIRMADA')throw new HttpError(409,'PREINSCRIPTION_UNAVAILABLE','La solicitud prenatal no está disponible');
+      let personId=input.id_persona,created=false;
+      if(personId){const person=await repo.person(db,personId);if(!person||!person.activo)throw new HttpError(422,'INVALID_PERSON','Selecciona una persona activa');}
+      else{personId=await repo.insertPerson(db,{nombre:pre.nombre_contacto,telefono:pre.telefono_contacto,email:pre.email_contacto,tipo_identificacion:null});created=true;}
+      const today=civilDate(),links=(await repo.links(db,child)).filter(v=>active(v,today)),policy=await repo.policy(db);
+      if(links.some(v=>Number(v.id_persona)===Number(personId)))throw new HttpError(409,'DUPLICATE_LINK','La persona ya está vinculada a este menor');
+      if(links.filter(v=>v.tipo==='PRINCIPAL').length>=policy.max_principales)throw new HttpError(422,'AUTHORIZED_LIMIT',`Se alcanzó el límite de ${policy.max_principales} personas principales`);
+      const link={id_persona:personId,tipo:'PRINCIPAL',parentesco:'Madre',puede_recoger:input.puede_recoger,restriccion_judicial:false,id_documento_restriccion:null,fecha_fin:null};
+      const linkId=await repo.insertLink(db,child,link,today);if(created)await audit(db,actor,'personas',personId,'CREAR_DESDE_PREINSCRIPCION',{id_preinscripcion:record.id_preinscripcion});
+      await audit(db,actor,'menor_persona',linkId,'CREAR',{id_menor:Number(child),id_persona:Number(personId),tipo:'PRINCIPAL',parentesco:'Madre',puede_recoger:input.puede_recoger,identidad_confirmada:true,id_preinscripcion:record.id_preinscripcion});
+      return (await repo.links(db,child)).find(v=>Number(v.id_vinculo)===Number(linkId));
+    }),
     list:async id=>{await requireChild(pool,id);return {autorizados:(await repo.links(pool,id)).map(v=>({...v,vigente:active(v,civilDate())})),gafetes:await repo.badges(pool,id)};},
     link:(child,input,actor)=>saveLink(child,null,input,actor),updateLink:(child,id,input,actor)=>saveLink(child,id,input,actor),
     badge:async(child,actor)=>transaction(pool,async db=>{await lockAdministration(db);await requireChild(db,child,true);const list=await repo.badges(db,child);const policy=await repo.policy(db);const max=Math.min(policy.max_gafetes,3);const number=Array.from({length:max},(_,i)=>i+1).find(n=>!list.some(b=>b.numero===n));if(!number)throw new HttpError(422,'BADGE_LIMIT','No hay números de gafete disponibles; se conservan los emitidos');const code=randomBytes(24).toString('hex');const id=await repo.insertBadge(db,child,number,createHash('sha256').update(code).digest('hex'));await audit(db,actor,'gafetes',id,'EMITIR',{id_menor:child,numero:number});return {id_gafete:id,numero:number,codigo:code,estado:'ACTIVO',aviso:'Guarda el código ahora; no se vuelve a mostrar'};}),

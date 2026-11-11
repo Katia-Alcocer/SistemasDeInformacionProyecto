@@ -1,4 +1,11 @@
 export async function policy(db){const [r]=await db.query('SELECT * FROM configuracion_operativa WHERE id_config=1');return r[0];}
+export async function financialNotice(db,child,date){const [r]=await db.execute(`SELECT COUNT(*) cuotas_pendientes,
+ CAST(COALESCE(SUM(c.importe-COALESCE(p.pagado,0)),0) AS DECIMAL(30,2)) saldo_pendiente,
+ COALESCE(SUM(CASE WHEN COALESCE(x.vencimiento_efectivo,c.vencimiento)<? THEN 1 ELSE 0 END),0) cuotas_vencidas,
+ CAST(COALESCE(SUM(CASE WHEN COALESCE(x.vencimiento_efectivo,c.vencimiento)<? THEN c.importe-COALESCE(p.pagado,0) ELSE 0 END),0) AS DECIMAL(30,2)) saldo_vencido
+ FROM cuotas c LEFT JOIN (SELECT id_cuota,SUM(importe) pagado FROM pagos WHERE estado='REGISTRADO' GROUP BY id_cuota) p ON p.id_cuota=c.id_cuota
+ LEFT JOIN (SELECT id_cuota,MAX(nueva_fecha) vencimiento_efectivo FROM prorrogas GROUP BY id_cuota) x ON x.id_cuota=c.id_cuota
+ WHERE c.id_menor=? AND c.estado='PENDIENTE' AND c.importe>COALESCE(p.pagado,0)`,[date,date,child]);return r[0];}
 export async function lookup(db,value,type){const [r]=await db.execute(type==='ID'?'SELECT id_menor FROM menores WHERE id_menor=?':'SELECT id_menor FROM menores WHERE codigo=?',[value]);return r[0];}
 export async function duplicate(db,child,date){const [r]=await db.execute('SELECT id_asistencia FROM asistencias WHERE id_menor=? AND fecha=? FOR UPDATE',[child,date]);return r[0];}
 export async function documentsValid(db,child){const [r]=await db.execute("SELECT tipo FROM documentos_menor WHERE id_menor=? AND tipo IN ('ACTA_NACIMIENTO','CURP') AND validado=1 AND uso='EXPEDIENTE'",[child]);return ['ACTA_NACIMIENTO','CURP'].every(t=>r.some(d=>d.tipo===t));}

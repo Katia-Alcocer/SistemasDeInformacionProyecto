@@ -99,7 +99,9 @@ services:
       DB_PASSWORD: ${APP_TEST_DB_PASSWORD:?Configura APP_TEST_DB_PASSWORD en .env}
       RUN_DB_TESTS: "true"
     volumes:
+      - ./backend/src:/app/src
       - ./backend/tests:/app/tests
+      - ./backend/views:/app/views
     depends_on:
       mysql-test:
         condition: service_healthy

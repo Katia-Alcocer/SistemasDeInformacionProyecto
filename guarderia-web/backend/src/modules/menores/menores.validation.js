@@ -3,7 +3,7 @@ import {validDate} from '../../utils/dates.js';
 export const civil=z.string().refine(validDate,'Fecha civil inválida');
 export const positiveId=z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const base=z.object({codigo:z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/),nombres:z.string().trim().min(1).max(100),apellido_paterno:z.string().trim().min(1).max(100),apellido_materno:z.string().trim().max(100).nullable(),fecha_nacimiento:civil,curp:z.string().trim().toUpperCase().regex(/^[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/).nullable(),id_preinscripcion:positiveId.nullable()}).strict();
-export const childSchema=base.extend({apellido_materno:base.shape.apellido_materno.default(null),curp:base.shape.curp.default(null),id_preinscripcion:positiveId.nullable().default(null)});
+export const childSchema=base.extend({apellido_materno:base.shape.apellido_materno.default(null),curp:base.shape.curp.default(null),id_preinscripcion:positiveId.nullable().default(null),confirmacion_madre:z.boolean().optional()}).refine(v=>!v.id_preinscripcion||v.confirmacion_madre===true,'Confirma la identidad de la madre antes de vincular la preinscripción');
 export const updateChildSchema=base.omit({id_preinscripcion:true}).partial().refine(v=>Object.keys(v).length>0);
 export const activateSchema=z.object({id_grupo:positiveId}).strict();
 export const reviewSchema=z.object({confirmacion:z.literal(true)}).strict();

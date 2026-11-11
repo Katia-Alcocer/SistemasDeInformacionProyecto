@@ -2,6 +2,21 @@
 
 Documentación única del proyecto. La especificación principal completa se conserva al final. Los accesos y contraseñas locales están exclusivamente en ACCESOS_LOCALES_PRIVADO.md y .env, ambos excluidos de Git.
 
+## Aclaración: registro de embarazadas y alta posterior del bebé
+
+La preinscripción guarda exclusivamente el nombre completo y teléfono de la madre, la fecha probable de parto, y correo, posible nombre y observaciones opcionales. El posible nombre es una referencia no oficial: no identifica al bebé ni se copia a su expediente. La fecha probable es solo una estimación; no calcula edad ni reemplaza la fecha real de nacimiento. No se crean filas en `menores` durante el embarazo.
+
+Después del nacimiento, ADMIN captura por separado el nombre real, fecha real de nacimiento y demás datos reales del menor. Solo permite seleccionar solicitudes CONFIRMADAS, revisar los datos de contacto de la madre y confirmar su identidad. La relación con `menores.id_preinscripcion` conserva la preferencia de admisión; una solicitud solo puede vincularse a un menor. En el paso de personas autorizadas, `POST /api/v1/menores/:id/autorizados/madre` reutiliza una persona existente o registra a la madre con los datos guardados y la vincula en una transacción. Autorizarla para recoger es una decisión separada y queda sin marcar por defecto. La madre y el menor conservan sus registros y auditoría; no se fabrican CURP, nacimiento, documentos ni expedientes prenatales.
+
+La migración aditiva `database/migrations/013_preinscripcion_materno.sql` añade `preinscripciones.posible_nombre_bebe` y `personas.email`; conserva filas y relaciones anteriores y se puede repetir. En una base ya existente, desde `guarderia-web`:
+
+```powershell
+docker compose cp database/migrations/013_preinscripcion_materno.sql mysql:/tmp/013.sql
+docker compose exec mysql mysql -uroot -p guarderia
+```
+
+En MySQL: `SOURCE /tmp/013.sql;`. La inicialización del Dockerfile incluye la migración en volúmenes nuevos; los volúmenes existentes requieren la aplicación explícita indicada arriba. No borrar ni recrear volúmenes.
+
 ## S6: anulación auditable de pagos
 
 Se añadió `POST /api/v1/pagos/:id/anulacion` para ADMIN, con motivo obligatorio, confirmación, CSRF, clave idempotente, actor/hora del servidor y evento de auditoría. La operación bloquea cuota y pago en una transacción; cambia el pago a ANULADO, por lo que deja de reducir el saldo, y devuelve el saldo recalculado. No modifica ni reconstruye `pagos.comprobante`: el recibo original conserva sus importes y datos de registro, mientras presenta el estado y motivo actuales.

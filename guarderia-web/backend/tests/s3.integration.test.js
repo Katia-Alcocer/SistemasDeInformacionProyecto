@@ -57,6 +57,13 @@ describe.skipIf(process.env.RUN_DB_TESTS!=='true')('S3: recepción transaccional
     const c=await child();await db.execute('UPDATE menores SET registro_civil_validado=0 WHERE id_menor=?',[c.id]);expect((await intake(c)).body.data.motivos.some(m=>m.codigo==='EXPEDIENTE_INCOMPLETO')).toBe(true);
     const d=await child();expect((await intake(d,{inspeccion:{confirmada:false,area:'GENERAL',lesiones:[]}})).status).toBe(422);
   });
+  test('recepción informa saldos pendientes/vencidos sin bloquear asistencia por adeudo',async()=>{
+    const c=await child();
+    await db.execute("INSERT INTO cuotas(id_menor,periodo_inicio,periodo_fin,vencimiento,importe) VALUES (?,?,?,?,?)",[c.id,dayShift(-7),dayShift(-1),dayShift(-1),'20.00']);
+    await db.execute("INSERT INTO cuotas(id_menor,periodo_inicio,periodo_fin,vencimiento,importe) VALUES (?,?,?,?,?)",[c.id,today,dayShift(6),dayShift(6),'30.00']);
+    const ficha=await request(app).get(`/api/v1/recepcion/menor/${c.code}`).set('Cookie',cookie);expect(ficha.status).toBe(200);expect(ficha.body.data.aviso_financiero).toEqual({cuotas_pendientes:2,saldo_pendiente:'50.00',cuotas_vencidas:1,saldo_vencido:'20.00',moneda:'MXN'});
+    expect((await intake(c)).status).toBe(201);
+  });
   test('dos ingresos simultáneos generan una sola asistencia y dos intentos',async()=>{
     const c=await child();const r=await Promise.all([intake(c),intake(c)]);expect(r.map(x=>x.status).sort()).toEqual([201,422]);
     const [a]=await db.execute('SELECT COUNT(*) n FROM asistencias WHERE id_menor=?',[c.id]);const [t]=await db.execute('SELECT COUNT(*) n FROM intentos_ingreso WHERE id_menor=?',[c.id]);expect(a[0].n).toBe(1);expect(t[0].n).toBe(2);

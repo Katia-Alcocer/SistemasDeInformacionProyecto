@@ -8,12 +8,14 @@ export function menoresService(pool){
   return {
     list:async()=> (await repo.list(pool)).map(presentChild),
     detail:async id=>{const c=await requireChild(pool,id);return {...presentChild(c),documentos:await repo.documents(pool,id),historial_grupos:await repo.history(pool,id)};},
+    auditExport:(id,actor)=>transaction(pool,async db=>{await lockAdministration(db);const c=await requireChild(db,id);const exportedAt=new Date().toISOString();await audit(db,actor,'menores',Number(id),'EXPORTAR_AUDITORIA',{codigo:c.codigo,detalle_completo:true});const events=await repo.auditHistory(db,id);return {version:1,tipo:'AUDITORIA_EXPEDIENTE',exportado_at:exportedAt,menor:{id_menor:Number(id),codigo:c.codigo,nombres:c.nombres,apellido_paterno:c.apellido_paterno,estatus:c.estatus},eventos:events};}),
+    printableReport:(id,actor)=>transaction(pool,async db=>{await lockAdministration(db);const c=await requireChild(db,id);const exportedAt=new Date().toISOString(),today=civilDate();const documentos=await repo.documents(db,id);const historial_grupos=await repo.history(db,id);const autorizados=(await repo.authorizedPeople(db,id)).map(a=>({...a,vigente:a.activo&&a.fecha_inicio<=today&&(!a.fecha_fin||a.fecha_fin>today)}));const gafetes=await repo.badges(db,id);await audit(db,actor,'menores',Number(id),'EXPORTAR_EXPEDIENTE',{codigo:c.codigo,documentos:documentos.length,autorizados:autorizados.length});return {exportado_at:exportedAt,menor:presentChild(c),documentos,historial_grupos,autorizados,gafetes};}),
     create:async(input,actor)=>transaction(pool,async db=>{
       await lockAdministration(db);
       if(input.fecha_nacimiento>civilDate())throw new HttpError(422,'FUTURE_BIRTH','La fecha de nacimiento no puede ser futura');
-      if(input.id_preinscripcion){const p=await repo.preinscription(db,input.id_preinscripcion);if(!p||p.estado==='CANCELADA')throw new HttpError(422,'INVALID_PREINSCRIPTION','Preinscripción inexistente o cancelada');}
+      if(input.id_preinscripcion){const p=await repo.preinscription(db,input.id_preinscripcion);if(!p||p.estado!=='CONFIRMADA')throw new HttpError(422,'INVALID_PREINSCRIPTION','Preinscripción inexistente o cancelada');if(await repo.preinscriptionLinked(db,input.id_preinscripcion))throw new HttpError(409,'PREINSCRIPTION_ALREADY_LINKED','La solicitud ya está vinculada a un menor');}
       const id=await repo.insert(db,input);
-      await audit(db,actor,'menores',id,'CREAR',{codigo:input.codigo,estatus:'PENDIENTE'});
+      await audit(db,actor,'menores',id,'CREAR',{codigo:input.codigo,estatus:'PENDIENTE',id_preinscripcion:input.id_preinscripcion||null,preferencia_admision:Boolean(input.id_preinscripcion),identidad_madre_confirmada:input.id_preinscripcion?true:null});
       return presentChild(await repo.find(db,id));
     }),
     update:async(id,input,actor)=>transaction(pool,async db=>{

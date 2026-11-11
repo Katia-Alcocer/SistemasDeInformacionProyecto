@@ -1,11 +1,77 @@
 import React from 'react';
 import {test,expect,vi,afterEach} from 'vitest';
-import {render,screen,cleanup,fireEvent} from '@testing-library/react';
+import {render,screen,cleanup,fireEvent,within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Finanzas from '../modules/pagos/Finanzas.jsx';
+
 const response=(data,status=200)=>({status,ok:status<400,json:async()=>({data,message:'Importe supera el saldo',error:{code:'OVERPAYMENT'}})});
-function setup(writer){let paid=false;const mock=vi.fn(async(path,o)=>{if(o?.method==='POST'){const r=await writer(path,o);if(r.ok&&path.endsWith('/pagos'))paid=true;return r;}if(path.endsWith('/admin/menores'))return response([{id_menor:4,codigo:'FICTICIO',nombres:'Menor',apellido_paterno:'Prueba',estatus:'ACTIVO'}]);const cuota={id_cuota:7,nombres:'Menor',apellido_paterno:'Prueba',periodo_inicio:'2026-10-19',importe:'100.00',pagado:paid?'25.00':'0.00',saldo:paid?'75.00':'100.00',situacion:'PENDIENTE',estado:'PENDIENTE',vencimiento_efectivo:'2026-10-25'};return path.endsWith('/cuotas/7')?response({cuota,pagos:paid?[{id_pago:9,importe:'25.00',pagado_at:'2026-10-22 18:00:00',estado:'REGISTRADO'}]:[]}):response({cuotas:[cuota]});});vi.stubGlobal('fetch',mock);render(<Finanzas/>);return mock;}
+function setup(writer){
+ let paid=false;
+ const mock=vi.fn(async(path,options)=>{
+  if(options?.method==='POST'){
+   const result=await writer(path,options);
+   if(result.ok&&path.endsWith('/pagos'))paid=true;
+   return result;
+  }
+  if(path.endsWith('/admin/menores'))return response([{id_menor:4,codigo:'FICTICIO',nombres:'Menor',apellido_paterno:'Prueba',estatus:'ACTIVO'}]);
+  const cuota={id_cuota:7,codigo:'FICTICIO',nombres:'Menor',apellido_paterno:'Prueba',periodo_inicio:'2026-10-19',periodo_fin:'2026-10-25',importe:'100.00',pagado:paid?'25.00':'0.00',saldo:paid?'75.00':'100.00',situacion:'PENDIENTE',estado:'PENDIENTE',vencimiento_efectivo:'2026-10-25'};
+  return path.endsWith('/cuotas/7')?response({cuota,pagos:paid?[{id_pago:9,importe:'25.00',pagado_at:'2026-10-22 18:00:00',estado:'REGISTRADO'}]:[],prorrogas:[]}):response({cuotas:[cuota]});
+ });
+ vi.stubGlobal('fetch',mock);render(<Finanzas/>);return mock;
+}
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
-test('cuota requiere cotejo, envía importe string y periodo manual sin actor/fecha de creación',async()=>{const mock=setup(async()=>response({id_cuota:7},201));await screen.findByRole('option',{name:'FICTICIO · Menor Prueba'});await userEvent.selectOptions(screen.getByLabelText('Menor activo'),'4');for(const [label,value] of [['Inicio del periodo','2026-10-19'],['Fin del periodo','2026-10-25'],['Vencimiento','2026-10-25']])fireEvent.change(screen.getByLabelText(label),{target:{value}});await userEvent.type(screen.getByLabelText('Importe (MXN)'),'100.00');const check=screen.getByLabelText('Confirmo los datos y la operación financiera');expect(check.required).toBe(true);await userEvent.click(check);await userEvent.click(screen.getByRole('button',{name:'Crear cuota'}));await screen.findByText('Registro guardado');const post=mock.mock.calls.find(([,o])=>o?.method==='POST');expect(JSON.parse(post[1].body)).toEqual({id_menor:4,periodo_inicio:'2026-10-19',periodo_fin:'2026-10-25',vencimiento:'2026-10-25',importe:'100.00',confirmacion:true});expect(post[1].headers['Idempotency-Key']).toBeTruthy();expect(check.checked).toBe(false);expect(screen.getByRole('button',{name:'Crear cuota'}).disabled).toBe(true);});
-test('pago parcial conserva clave y datos tras fallo, actualiza saldo y enlaza comprobante',async()=>{let n=0;const mock=setup(async()=>{if(++n===1)throw new Error('Red interrumpida');return response({id_pago:9},201);});await screen.findByRole('option',{name:/#7/});await userEvent.selectOptions(screen.getByLabelText('Cuota para consultar'),'7');await screen.findByRole('button',{name:'Registrar pago'});await userEvent.type(screen.getAllByLabelText('Importe (MXN)')[1],'25.00');await userEvent.click(screen.getAllByLabelText('Confirmo los datos y la operación financiera')[1]);await userEvent.click(screen.getByRole('button',{name:'Registrar pago'}));await screen.findByText('Red interrumpida');await userEvent.click(screen.getByRole('button',{name:'Registrar pago'}));const link=await screen.findByRole('link',{name:'Comprobante de pago #9'});expect(link.getAttribute('href')).toBe('/reportes/pagos/9');expect(screen.getByText('Importe: 100.00 · Pagado: 25.00 · Saldo: 75.00')).toBeTruthy();const posts=mock.mock.calls.filter(([,o])=>o?.method==='POST');expect(posts).toHaveLength(2);expect(posts[0][1].headers['Idempotency-Key']).toBe(posts[1][1].headers['Idempotency-Key']);expect(posts[0][1].body).toBe(posts[1][1].body);expect(JSON.parse(posts[0][1].body)).toMatchObject({id_cuota:7,importe:'25.00',metodo:'EFECTIVO',referencia:null});});
-test('sobrepago rechazado conserva importe y no muestra recibo ni éxito',async()=>{setup(async()=>response(null,409));await screen.findByRole('option',{name:/#7/});await userEvent.selectOptions(screen.getByLabelText('Cuota para consultar'),'7');await screen.findByRole('button',{name:'Registrar pago'});await userEvent.type(screen.getAllByLabelText('Importe (MXN)')[1],'110.00');await userEvent.click(screen.getAllByLabelText('Confirmo los datos y la operación financiera')[1]);await userEvent.click(screen.getByRole('button',{name:'Registrar pago'}));await screen.findByText('Importe supera el saldo');expect(screen.getAllByLabelText('Importe (MXN)')[1].value).toBe('110.00');expect(screen.queryByText('Registro guardado')).toBeNull();expect(screen.queryByRole('link',{name:'Comprobante de pago #9'})).toBeNull();});
+
+test('lists unpaid fees and omits cancelled fees from due balance',async()=>{
+ setup(async()=>response({id_cuota:7},201));
+ await screen.findByRole('heading',{name:'Cuotas con saldo pendiente'});
+ expect(await screen.findByRole('cell',{name:/FICTICIO.*Menor Prueba/})).toBeTruthy();
+ expect(screen.getByRole('cell',{name:'100.00'})).toBeTruthy();
+});
+
+test('fee creation requires confirmation and sends manual seven day period',async()=>{
+ const mock=setup(async()=>response({id_cuota:7},201));
+ await screen.findByRole('option',{name:/FICTICIO.*Menor Prueba/});
+ await userEvent.selectOptions(screen.getByLabelText('Menor activo'),'4');
+ for(const [label,value] of [['Inicio del periodo','2026-10-19'],['Fin del periodo','2026-10-25'],['Vencimiento','2026-10-25']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+ await userEvent.type(screen.getByLabelText('Importe (MXN)'),'100.00');
+ const form=screen.getByRole('button',{name:'Crear cuota'}).closest('form');
+ const check=within(form).getByLabelText(/Confirmo los datos/);
+ expect(check.required).toBe(true);await userEvent.click(check);await userEvent.click(screen.getByRole('button',{name:'Crear cuota'}));
+ await screen.findByText('Registro guardado');
+ const post=mock.mock.calls.find(([,options])=>options?.method==='POST');
+ expect(JSON.parse(post[1].body)).toEqual({id_menor:4,periodo_inicio:'2026-10-19',periodo_fin:'2026-10-25',vencimiento:'2026-10-25',importe:'100.00',confirmacion:true});
+ expect(post[1].headers['Idempotency-Key']).toBeTruthy();expect(check.checked).toBe(false);expect(screen.getByRole('button',{name:'Crear cuota'}).disabled).toBe(true);
+});
+
+test('partial payment keeps idempotency key after network failure and refreshes balance',async()=>{
+ let attempts=0;
+ const mock=setup(async()=>{if(++attempts===1)throw new Error('Network interrupted');return response({id_pago:9},201);});
+ await screen.findByRole('option',{name:/#7/});await userEvent.selectOptions(screen.getByLabelText('Cuota para consultar'),'7');
+ const button=await screen.findByRole('button',{name:'Registrar pago'}),form=button.closest('form');
+ await userEvent.type(within(form).getByLabelText('Importe (MXN)'),'25.00');
+ await userEvent.click(within(form).getByLabelText(/Confirmo los datos/));
+ await userEvent.click(button);await screen.findByText('Network interrupted');await userEvent.click(screen.getByRole('button',{name:'Registrar pago'}));
+ const link=await screen.findByRole('link',{name:'Comprobante de pago #9'});expect(link.getAttribute('href')).toBe('/reportes/pagos/9');
+ expect(screen.getByText(/Importe: 100.00.*Pagado: 25.00.*Saldo: 75.00/)).toBeTruthy();
+ const posts=mock.mock.calls.filter(([,options])=>options?.method==='POST');expect(posts).toHaveLength(2);
+ expect(posts[0][1].headers['Idempotency-Key']).toBe(posts[1][1].headers['Idempotency-Key']);expect(posts[0][1].body).toBe(posts[1][1].body);
+ expect(JSON.parse(posts[0][1].body)).toMatchObject({id_cuota:7,importe:'25.00',metodo:'EFECTIVO',referencia:null});
+});
+
+test('overpayment preserves amount and does not show receipt or success',async()=>{
+ setup(async()=>response(null,409));await screen.findByRole('option',{name:/#7/});await userEvent.selectOptions(screen.getByLabelText('Cuota para consultar'),'7');
+ const button=await screen.findByRole('button',{name:'Registrar pago'}),form=button.closest('form');
+ const amount=within(form).getByLabelText('Importe (MXN)');await userEvent.type(amount,'110.00');
+ await userEvent.click(within(form).getByLabelText(/Confirmo los datos/));await userEvent.click(button);
+ await screen.findByText('Importe supera el saldo');expect(amount.value).toBe('110.00');expect(screen.queryByText('Registro guardado')).toBeNull();expect(screen.queryByRole('link',{name:'Comprobante de pago #9'})).toBeNull();
+});
+
+test('extension requires confirmation and sends its reason',async()=>{
+ const mock=setup(async()=>response({id_prorroga:15},201));await screen.findByRole('option',{name:/#7/});await userEvent.selectOptions(screen.getByLabelText('Cuota para consultar'),'7');
+ const button=await screen.findByRole('button',{name:/Autorizar pr/}),form=button.closest('form');
+ fireEvent.change(within(form).getByLabelText('Nueva fecha de vencimiento'),{target:{value:'2026-11-30'}});
+ await userEvent.type(within(form).getByLabelText(/Motivo de la pr/),'Documented payment agreement');
+ await userEvent.click(within(form).getByLabelText(/Confirmo los datos/));await userEvent.click(button);
+ await screen.findByText('Registro guardado');const post=mock.mock.calls.find(([path,options])=>path==='/api/v1/prorrogas'&&options?.method==='POST');
+ expect(JSON.parse(post[1].body)).toEqual({id_cuota:7,nueva_fecha:'2026-11-30',motivo:'Documented payment agreement',confirmacion:true});expect(post[1].headers['Idempotency-Key']).toBeTruthy();
+});

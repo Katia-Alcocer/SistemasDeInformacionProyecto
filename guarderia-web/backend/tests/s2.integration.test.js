@@ -43,15 +43,28 @@ describe.skipIf(process.env.RUN_DB_TESTS!=='true')('S2: admisión y archivos pri
   });
   test('expediente pendiente, fecha inválida y datos privados no expuestos',async()=>{
     expect((await send('post','/api/v1/admin/menores',{...payload('BAD'),fecha_nacimiento:'2026-02-30'})).status).toBe(400);
-    const r=await send('post','/api/v1/admin/menores',{...payload('MAIN'),id_preinscripcion:pre.id_preinscripcion});expect(r.status).toBe(201);child=r.body.data;expect(child.estatus).toBe('PENDIENTE');expect(child.registro_civil_validado).toBe(false);expect(child.curp).not.toBe(payload('MAIN').curp);
+    const r=await send('post','/api/v1/admin/menores',{...payload('MAIN'),id_preinscripcion:pre.id_preinscripcion,confirmacion_madre:true});expect(r.status).toBe(201);child=r.body.data;expect(child.estatus).toBe('PENDIENTE');expect(child.registro_civil_validado).toBe(false);expect(child.curp).not.toBe(payload('MAIN').curp);
     expect((await send('post',`/api/v1/admin/menores/${child.id_menor}/activar`,{id_grupo:group.id_grupo})).status).toBe(422);
     expect((await send('patch',`/api/v1/preinscripciones/${pre.id_preinscripcion}`,{estado:'CANCELADA'})).status).toBe(409);
+  });
+  test('exportación ADMIN de auditoría incluye detalle del expediente y registra la descarga',async()=>{
+    const response=await request(app).get(`/api/v1/admin/auditoria-dif/menor/${child.id_menor}`).set('Cookie',cookie);
+    expect(response.status).toBe(200);expect(response.headers['content-disposition']).toContain(`auditoria-menor-${child.id_menor}.json`);
+    expect(response.body.data).toMatchObject({version:1,tipo:'AUDITORIA_EXPEDIENTE',menor:{id_menor:child.id_menor,codigo:child.codigo}});
+    expect(response.body.data.eventos.some(e=>e.accion==='CREAR')).toBe(true);expect(response.body.data.eventos.some(e=>e.accion==='EXPORTAR_AUDITORIA')).toBe(true);
+    expect(JSON.stringify(response.body)).not.toContain('ruta_segura');expect(JSON.stringify(response.body)).not.toContain('hash_sha256');
+    const contract=await request(app).get('/api/v1/openapi.json');expect(contract.body.info.version).toBe('4.5.0');expect(contract.body.paths['/admin/auditoria-dif/menor/{id}'].get).toBeTruthy();
   });
   test('documentos rechazan MIME falso, vacío, contenido activo y exceso de tamaño',async()=>{
     expect((await upload(child.id_menor,'ACTA_NACIMIENTO',pdf,'image/png')).status).toBe(422);
     expect((await upload(child.id_menor,'ACTA_NACIMIENTO',Buffer.from('archivo inválido'))).status).toBe(422);
     expect((await upload(child.id_menor,'ACTA_NACIMIENTO',Buffer.from('%PDF-1.4 /JavaScript %%EOF'))).status).toBe(422);
     expect((await upload(child.id_menor,'ACTA_NACIMIENTO',Buffer.alloc(2*1024*1024+1))).status).toBe(413);
+  });
+  test('ADMIN printable report safely renders child data',async()=>{
+    const response=await request(app).get(`/reportes/expediente/${child.id_menor}`).set('Cookie',cookie);
+    expect(response.status).toBe(200);expect(response.type).toContain('html');expect(response.text).toContain('Expediente infantil');expect(response.text).not.toContain('ruta_segura');expect(response.text).not.toContain('hash_sha256');expect(response.text).not.toContain('codigo_hash');
+    const contract=await request(app).get('/api/v1/openapi.json');expect(contract.body.info.version).toBe('4.5.0');expect(contract.body.paths['/reportes/expediente/{id}'].get).toBeTruthy();
   });
   test('cifrado, validación manual, descarga autorizada y ausencia de rutas privadas',async()=>{
     const r=await upload(child.id_menor,'OTRO');expect(r.status).toBe(201);document=r.body.data;
@@ -109,6 +122,8 @@ describe.skipIf(process.env.RUN_DB_TESTS!=='true')('S2: admisión y archivos pri
     expect((await request(app).get(`/api/v1/admin/menores/${child.id_menor}`).set('Cookie',rc)).status).toBe(200);
     expect((await request(app).get(`/api/v1/menores/${child.id_menor}/autorizados`).set('Cookie',rc)).status).toBe(200);
     expect((await request(app).get(`/api/v1/admin/menores/${child.id_menor}/documentos/${document.id_documento}`).set('Cookie',rc)).status).toBe(403);
+    expect((await request(app).get(`/api/v1/admin/auditoria-dif/menor/${child.id_menor}`).set('Cookie',rc)).status).toBe(403);
+    expect((await request(app).get(`/reportes/expediente/${child.id_menor}`).set('Cookie',rc)).status).toBe(403);
   });
   test('concurrencia no rebasa cupo y categoría de grupo se valida por cumpleaños',async()=>{
     const g=await gruposService(db).create({codigo:`C-${suffix}`,nombre:'Cupo uno',id_categoria:1,capacidad:1,activo:true,id_responsable:teacher.id_usuario},admin.id_usuario);

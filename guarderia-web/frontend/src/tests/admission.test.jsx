@@ -33,9 +33,9 @@ test('wizard crea expediente pendiente sin simular activación',async()=>{
 test('preinscripción muestra rechazo del intervalo sin confirmar registro',async()=>{
   vi.stubGlobal('fetch',vi.fn(async(path,options)=>path.endsWith('/auth/me')?response(200,{user:{nombre:'Admin',rol:'ADMIN'},csrfToken:'token'}):options?.method==='POST'?response(422,null,'Fecha fuera de ventana de cuatro meses'):response(200,[])));
   render(<MemoryRouter initialEntries={['/preinscripciones']}><App/></MemoryRouter>);
-  await screen.findByRole('heading',{name:'Nueva solicitud'});
-  await userEvent.type(screen.getByLabelText('Nombre del contacto'),'Contacto ficticio');
-  await userEvent.type(screen.getByLabelText('Teléfono del contacto'),'5550000000');
+  await screen.findByRole('heading',{name:/Nueva solicitud/});
+  await userEvent.type(screen.getByLabelText('Nombre completo de la madre'),'Contacto ficticio');
+  await userEvent.type(screen.getByLabelText(/Tel.fono/),'5550000000');
   fireEvent.change(screen.getByLabelText('Fecha probable de parto'),{target:{value:'2028-01-01'}});
   await userEvent.click(screen.getByRole('button',{name:'Guardar solicitud'}));
   expect(await screen.findByText('Fecha fuera de ventana de cuatro meses')).toBeTruthy();

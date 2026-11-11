@@ -66,6 +66,7 @@ CREATE TABLE preinscripciones (
  id_preinscripcion BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  nombre_contacto VARCHAR(160) NOT NULL, telefono_contacto VARCHAR(30) NOT NULL,
  email_contacto VARCHAR(190) NULL, fecha_probable_parto DATE NOT NULL,
+ posible_nombre_bebe VARCHAR(160) NULL,
  fecha_solicitud DATE NOT NULL, estado ENUM('PENDIENTE','EN_ESPERA','CONFIRMADA','CANCELADA') NOT NULL DEFAULT 'PENDIENTE',
  observaciones TEXT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX ix_preinscripciones_estado (estado,fecha_probable_parto)
@@ -103,7 +104,7 @@ CREATE TABLE documentos_menor (
 -- 04 PERSONAS Y GAFETES (tutores principales y auxiliares se cuentan por vinculo)
 CREATE TABLE personas (
  id_persona BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- nombre VARCHAR(180) NOT NULL, telefono VARCHAR(30) NULL,
+ nombre VARCHAR(180) NOT NULL, telefono VARCHAR(30) NULL, email VARCHAR(190) NULL,
  tipo_identificacion VARCHAR(40) NULL, identificacion_referencia VARCHAR(120) NULL,
  identificacion_ruta_segura VARCHAR(500) NULL, activo BOOLEAN NOT NULL DEFAULT TRUE,
  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

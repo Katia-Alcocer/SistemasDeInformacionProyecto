@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expediente de <%= reporte.menor.nombres %> <%= reporte.menor.apellido_paterno %></title>
+  <style>
+    body{font:15px/1.45 Arial,sans-serif;color:#18212b;margin:2rem auto;max-width:900px;padding:0 1rem}h1,h2{color:#17324d}h2{margin-top:1.7rem;border-bottom:1px solid #ccd5df;padding-bottom:.3rem}.meta{color:#465564}.actions{margin-bottom:1.5rem}table{border-collapse:collapse;width:100%;margin:.7rem 0 1.2rem}th,td{border:1px solid #cbd3dc;padding:.45rem;text-align:left;vertical-align:top}th{background:#eef2f6}.notice{margin-top:2rem;padding:.8rem;background:#f3f5f7}@media print{body{margin:0;max-width:none}.actions{display:none}h2{break-after:avoid}tr{break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <div class="actions"><button onclick="window.print()">Imprimir o guardar PDF</button></div>
+  <h1>Expediente infantil</h1>
+  <p class="meta">Generado <%= reporte.exportado_at %> UTC · Solo ADMIN</p>
+  <h2>Datos del menor</h2>
+  <table><tbody>
+    <tr><th>Código</th><td><%= reporte.menor.codigo %></td></tr>
+    <tr><th>Nombre</th><td><%= reporte.menor.nombres %> <%= reporte.menor.apellido_paterno %> <%= reporte.menor.apellido_materno || '' %></td></tr>
+    <tr><th>Fecha de nacimiento</th><td><%= reporte.menor.fecha_nacimiento %></td></tr>
+    <tr><th>CURP</th><td><%= reporte.menor.curp || 'No registrada' %></td></tr>
+    <tr><th>Estado</th><td><%= reporte.menor.estatus %></td></tr>
+    <tr><th>Registro Civil</th><td><%= reporte.menor.registro_civil_validado ? 'Validado' : 'Pendiente' %></td></tr>
+    <tr><th>Categoría por edad</th><td><%= reporte.menor.categoria_edad || 'Fuera de rango' %></td></tr>
+  </tbody></table>
+  <h2>Documentos registrados</h2>
+  <% if (!reporte.documentos.length) { %><p>Sin documentos registrados.</p><% } else { %>
+  <table><thead><tr><th>Tipo</th><th>Uso</th><th>Validado</th><th>Registro UTC</th></tr></thead><tbody>
+  <% reporte.documentos.forEach(d => { %><tr><td><%= d.tipo %></td><td><%= d.uso %></td><td><%= d.validado ? 'Sí' : 'No' %></td><td><%= d.registrado_at %></td></tr><% }) %>
+  </tbody></table><% } %>
+  <h2>Historial de grupos</h2>
+  <% if (!reporte.historial_grupos.length) { %><p>Sin asignaciones registradas.</p><% } else { %>
+  <table><thead><tr><th>Grupo</th><th>Inicio</th><th>Fin</th><th>Motivo</th></tr></thead><tbody>
+  <% reporte.historial_grupos.forEach(h => { %><tr><td><%= h.codigo %> · <%= h.grupo %></td><td><%= h.fecha_inicio %></td><td><%= h.fecha_fin || 'Actual' %></td><td><%= h.motivo || '' %></td></tr><% }) %>
+  </tbody></table><% } %>
+  <h2>Personas autorizadas</h2>
+  <% if (!reporte.autorizados.length) { %><p>Sin personas vinculadas.</p><% } else { %>
+  <table><thead><tr><th>Nombre</th><th>Relación</th><th>Teléfono</th><th>Puede recoger</th><th>Restricción judicial</th><th>Vigencia</th></tr></thead><tbody>
+  <% reporte.autorizados.forEach(a => { %><tr><td><%= a.nombre %></td><td><%= a.parentesco %> · <%= a.tipo %></td><td><%= a.telefono || 'No registrado' %></td><td><%= a.puede_recoger ? 'Sí' : 'No' %></td><td><%= a.restriccion_judicial ? `Sí${a.respaldo_documentado ? ' · respaldo registrado' : ''}` : 'No' %></td><td><%= a.fecha_inicio %> a <%= a.fecha_fin || 'sin fecha de fin' %> · <%= a.vigente ? 'Vigente' : 'No vigente' %></td></tr><% }) %>
+  </tbody></table><% } %>
+  <h2>Gafetes</h2>
+  <% if (!reporte.gafetes.length) { %><p>Sin gafetes emitidos.</p><% } else { %>
+  <table><thead><tr><th>Número</th><th>Estado</th><th>Emisión</th></tr></thead><tbody>
+  <% reporte.gafetes.forEach(g => { %><tr><td><%= g.numero %></td><td><%= g.estado %></td><td><%= g.fecha_emision %></td></tr><% }) %>
+  </tbody></table><% } %>
+  <p class="notice">Documento interno. Incluye metadatos de documentos y no contiene archivos adjuntos ni rutas privadas.</p>
+</body>
+</html>

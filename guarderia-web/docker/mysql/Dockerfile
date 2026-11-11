@@ -10,4 +10,7 @@ COPY database/migrations/007_salida_segura.sql /docker-entrypoint-initdb.d/19c-s
 COPY database/migrations/008_enfermeria.sql /docker-entrypoint-initdb.d/19d-enfermeria.sql
 COPY database/migrations/009_reportes_autoridad.sql /docker-entrypoint-initdb.d/19e-reportes-autoridad.sql
 COPY database/migrations/010_finanzas.sql /docker-entrypoint-initdb.d/19f-finanzas.sql
+COPY database/migrations/011_prorrogas_idempotencia.sql /docker-entrypoint-initdb.d/19g-prorrogas-idempotencia.sql
+COPY database/migrations/012_anulacion_pagos.sql /docker-entrypoint-initdb.d/19h-anulacion-pagos.sql
+COPY database/migrations/013_preinscripcion_materno.sql /docker-entrypoint-initdb.d/19i-preinscripcion-materno.sql
 COPY docker/mysql/20-app-user.sh /docker-entrypoint-initdb.d/20-app-user.sh
