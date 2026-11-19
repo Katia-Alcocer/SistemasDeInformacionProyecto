@@ -72,6 +72,7 @@ services:
   mysql:
     <<: *mysql
     environment:
+      MYSQL_DATABASE: guarderia
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configura MYSQL_ROOT_PASSWORD en .env}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Configura APP_DB_PASSWORD en .env}
     volumes:
@@ -81,6 +82,7 @@ services:
     <<: *mysql
     profiles: ["test"]
     environment:
+      MYSQL_DATABASE: guarderia
       MYSQL_ROOT_PASSWORD: ${MYSQL_TEST_ROOT_PASSWORD:?Configura MYSQL_TEST_ROOT_PASSWORD en .env}
       APP_DB_PASSWORD: ${APP_TEST_DB_PASSWORD:?Configura APP_TEST_DB_PASSWORD en .env}
     volumes:

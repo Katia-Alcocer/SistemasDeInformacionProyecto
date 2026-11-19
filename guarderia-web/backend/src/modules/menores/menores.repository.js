@@ -1,4 +1,4 @@
-const columns='id_menor,codigo,id_preinscripcion,nombres,apellido_paterno,apellido_materno,fecha_nacimiento,curp,registro_civil_validado,estatus,fecha_alta,motivo_baja,deleted_at';
+const columns='id_menor,codigo,id_preinscripcion,nombres,apellido_paterno,apellido_materno,fecha_nacimiento,curp,registro_civil_validado,estatus,fecha_alta,motivo_baja,deleted_at,foto_ruta_segura IS NOT NULL foto_disponible';
 export async function list(db){const [r]=await db.query(`SELECT ${columns} FROM menores ORDER BY id_menor DESC LIMIT 500`);return r;}
 export async function find(db,id,lock=false){const [r]=await db.execute(`SELECT ${columns} FROM menores WHERE id_menor=?${lock?' FOR UPDATE':''}`,[id]);return r[0];}
 export async function insert(db,c){const [r]=await db.execute('INSERT INTO menores(codigo,nombres,apellido_paterno,apellido_materno,fecha_nacimiento,curp,id_preinscripcion) VALUES (?,?,?,?,?,?,?)',[c.codigo,c.nombres,c.apellido_paterno,c.apellido_materno,c.fecha_nacimiento,c.curp,c.id_preinscripcion]);return r.insertId;}

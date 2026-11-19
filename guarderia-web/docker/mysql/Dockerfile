@@ -13,4 +13,5 @@ COPY database/migrations/010_finanzas.sql /docker-entrypoint-initdb.d/19f-finanz
 COPY database/migrations/011_prorrogas_idempotencia.sql /docker-entrypoint-initdb.d/19g-prorrogas-idempotencia.sql
 COPY database/migrations/012_anulacion_pagos.sql /docker-entrypoint-initdb.d/19h-anulacion-pagos.sql
 COPY database/migrations/013_preinscripcion_materno.sql /docker-entrypoint-initdb.d/19i-preinscripcion-materno.sql
+COPY database/migrations/014_operacion_integrada.sql /docker-entrypoint-initdb.d/19j-operacion-integrada.sql
 COPY docker/mysql/20-app-user.sh /docker-entrypoint-initdb.d/20-app-user.sh

@@ -45,7 +45,7 @@ export function medicamentosService(pool,config){const storage=privateStorage(co
         if(Math.round(input.dosis_aplicada*1000)!==Math.round(Number(row.dosis)*1000))throw new HttpError(422,'DOSE_MISMATCH','La dosis debe coincidir exactamente con la prescripción');
         await storage.read(row.ruta_segura,row.hash_sha256);
       }
-      await repo.resolve(db,id,input,user.id_usuario,time,scoped,hash);await audit(db,user.id_usuario,'administraciones_medicamento',id,input.estado,{id_menor:row.id_menor,id_tratamiento:row.id_tratamiento,fecha_programada:row.fecha_programada,hora:row.hora,dosis_aplicada:input.dosis_aplicada,resuelta_at:time.utc});return {id_administracion:Number(id),estado:input.estado,resuelta_at:time.utc,repetido:false};
+      await repo.resolve(db,id,input,user.id_usuario,time,scoped,hash);await audit(db,user.id_usuario,'administraciones_medicamento',id,input.estado,{id_menor:row.id_menor,id_tratamiento:row.id_tratamiento,fecha_programada:row.fecha_programada,hora:row.hora,dosis_aplicada:input.dosis_aplicada,resultado:input.resultado|| (input.estado==='APLICADA'?'ADMINISTRADA':'NO_FUE_POSIBLE'),resuelta_at:time.utc});return {id_administracion:Number(id),estado:input.estado,resultado:input.resultado|| (input.estado==='APLICADA'?'ADMINISTRADA':'NO_FUE_POSIBLE'),resuelta_at:time.utc,repetido:false};
     }),
     suspend:(id,input,user)=>transaction(pool,async db=>{
       await lockAdministration(db);if(!['ADMIN','ENFERMERIA'].includes(user.rol))throw new HttpError(403,'FORBIDDEN','La suspensión requiere ADMIN o ENFERMERIA');

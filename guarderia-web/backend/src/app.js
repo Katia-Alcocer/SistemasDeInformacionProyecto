@@ -23,7 +23,7 @@ import {preinscripcionesRoutes} from './modules/preinscripciones/preinscripcione
 import {tutoresService} from './modules/tutores/tutores.service.js';
 import {personasRoutes,tutoresRoutes} from './modules/tutores/tutores.routes.js';
 import {documentosService} from './modules/documentos/documentos.service.js';
-import {documentosRoutes,identidadRoutes} from './modules/documentos/documentos.routes.js';
+import {documentosRoutes,identidadRoutes,photoRoutes} from './modules/documentos/documentos.routes.js';
 import {recetasService} from './modules/recetas/recetas.service.js';
 import {recetasRoutes,dosificadorRoutes} from './modules/recetas/recetas.routes.js';
 import {insumosService} from './modules/insumos/insumos.service.js';
@@ -91,9 +91,11 @@ export function createApp(database, config = securityConfig()) {
   const documents=documentosService(database,config);
   const tutors=tutoresService(database);
   app.use('/api/v1/admin/menores',documentosRoutes(documents,guard));
+  app.use('/api/v1/admin/menores',photoRoutes(documents,guard,'menor'));
   app.use('/api/v1/admin/menores',...admissionGuard,menoresRoutes(childRecords));
   app.use('/api/v1/preinscripciones',...guard,preinscripcionesRoutes(preinscripcionesService(database)));
   app.use('/api/v1/personas',identidadRoutes(documents,guard));
+  app.use('/api/v1/personas',photoRoutes(documents,guard,'persona'));
   app.use('/api/v1/personas',...admissionGuard,personasRoutes(tutors));
   app.use('/api/v1/menores',...admissionGuard,tutoresRoutes(tutors));
   const medical=recetasService(database,config);

@@ -7,3 +7,5 @@ coverage/
 private_uploads/
 *.log
 ACCESOS_LOCALES_PRIVADO.md
+guarderia-web/contrasenas.md
+**/contrasenas.md

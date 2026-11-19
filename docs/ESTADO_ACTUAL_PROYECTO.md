@@ -1,5 +1,19 @@
 # Estado actual del proyecto
 
+## Incremento operativo integrado (18 de noviembre de 2026)
+
+Se implemento el incremento operativo acordado sobre la base existente, conservando el rol `EDUCADORA` como equivalente funcional de maestros.
+
+- Fotografias privadas cifradas para menores y personas, con hash, MIME, sustitucion segura, descarga autorizada y auditoria.
+- Enfermeria con tipo de incidente, observaciones, historial ampliado y reporte diario consolidado por menor.
+- Medicamentos con resultado detallado y motivo.
+- Comedor con fecha y tipo de menu, sinonimos de ingredientes, menu diario y advertencias automaticas contra restricciones alimentarias activas.
+- Indicadores de disponibilidad fotografica en consultas de expedientes, autorizados, asistencia y salidas.
+
+La migracion correspondiente es `database/migrations/014_operacion_integrada.sql` y se incorporo al `Dockerfile` de MySQL. Fue aplicada en desarrollo y `mysql-test`. La validacion final ejecuto 13 suites y 143 pruebas de integracion: todas pasaron. Frontend y backend tambien pasaron build/lint en Docker.
+
+Queda pendiente una revision manual de interfaz para exponer en pantalla todos los campos nuevos; los endpoints y la persistencia ya estan implementados y validados.
+
 Fecha de revisión: 28 de octubre de 2026.
 
 ## 1. Estado general
