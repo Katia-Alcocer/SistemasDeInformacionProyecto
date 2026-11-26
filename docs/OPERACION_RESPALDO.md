@@ -31,6 +31,12 @@ docker compose exec -T backend sh -ec 'tar -xzf - -C /app/private_uploads' < pri
 
 Después comprobar conteos de tablas, lectura autorizada de un documento ficticio, salud de API, login de prueba y que ninguna ruta privada aparezca en respuestas. El ensayo solo cuenta como recuperación verificada cuando se registra fecha, versión, resultado y duración. No importar una copia sobre datos existentes sin un plan de recuperación aprobado: `mysql` puede sobrescribir filas.
 
+## Ejecucion reproducible
+
+Desde `guarderia-web`, `scripts/backup.ps1` crea el dump SQL, el archivo comprimido de `private_uploads` y `SHA256SUMS` sin incluirlos en Git. `scripts/restore-isolated.ps1` exige `-ConfirmIsolated`, valida los hashes, levanta un MySQL temporal, restaura las 43 tablas y extrae los documentos a un volumen temporal; al finalizar elimina esos recursos aislados.
+
+La ejecucion verificada el 25 de noviembre de 2026 recupero 43 tablas y el volumen privado en una instancia temporal. No se modifico el volumen `mysql_data` ni el volumen `private_uploads` de desarrollo.
+
 ## Limitaciones actuales
 
 - No hay tarea automática de backup configurada en Compose.

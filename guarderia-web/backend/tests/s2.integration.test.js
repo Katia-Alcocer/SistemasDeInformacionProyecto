@@ -50,7 +50,7 @@ describe.skipIf(process.env.RUN_DB_TESTS!=='true')('S2: admisión y archivos pri
   test('exportación ADMIN de auditoría incluye detalle del expediente y registra la descarga',async()=>{
     const response=await request(app).get(`/api/v1/admin/auditoria-dif/menor/${child.id_menor}`).set('Cookie',cookie);
     expect(response.status).toBe(200);expect(response.headers['content-disposition']).toContain(`auditoria-menor-${child.id_menor}.json`);
-    expect(response.body.data).toMatchObject({version:1,tipo:'AUDITORIA_EXPEDIENTE',menor:{id_menor:child.id_menor,codigo:child.codigo}});
+    expect(response.body.data).toMatchObject({version:2,tipo:'AUDITORIA_EXPEDIENTE',menor:{id_menor:child.id_menor,codigo:child.codigo},historiales:{asistencias:[],atenciones:[],mediciones:[],medicamentos:[],alimentacion:[],actividades:[],salidas:[]}});
     expect(response.body.data.eventos.some(e=>e.accion==='CREAR')).toBe(true);expect(response.body.data.eventos.some(e=>e.accion==='EXPORTAR_AUDITORIA')).toBe(true);
     expect(JSON.stringify(response.body)).not.toContain('ruta_segura');expect(JSON.stringify(response.body)).not.toContain('hash_sha256');
     const contract=await request(app).get('/api/v1/openapi.json');expect(contract.body.info.version).toBe('4.5.0');expect(contract.body.paths['/admin/auditoria-dif/menor/{id}'].get).toBeTruthy();

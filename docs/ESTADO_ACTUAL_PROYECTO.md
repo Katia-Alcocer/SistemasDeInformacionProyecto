@@ -91,3 +91,6 @@ Con las migraciones 011–012 aplicadas y las suites backend/frontend pasando, c
 Se renovó el frontend React/Vite con una identidad visual cálida y sobria, estilos globales responsivos y navegación lateral filtrada por rol. Se creó el botón reutilizable, se rediseñaron login y dashboard, y los estilos compartidos cubren los módulos existentes. Se mantuvieron rutas, permisos, campos y llamadas a API.
 
 La documentación está en docs/REDISENO_UI_UX.md. La suite frontend pasó 48/48 pruebas; ESLint y build también pasaron. El build informa avisos de React Router sobre directivas use client ignoradas. No hubo navegador gráfico disponible para una revisión manual, por lo que quedan pendientes inspección visual por resolución y auditoría formal WCAG 2.2 AA.
+## Cierre Sprint 6 verificado (25 de noviembre de 2026)
+
+La evidencia de entrega esta consolidada en [docs/ENTREGA_SPRINT6.md](./ENTREGA_SPRINT6.md). Se ampliaron la exportacion JSON y el reporte HTML de expediente con historiales operativos y clinicos autorizados; se probaron respaldo y restauracion en una instancia aislada y se midieron p95 locales. No se declara disponibilidad 99.5% ni integracion oficial con DIF.

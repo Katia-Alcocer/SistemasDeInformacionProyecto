@@ -7,6 +7,25 @@ export async function history(db,id){const [r]=await db.execute('SELECT h.id_his
 export async function authorizedPeople(db,id){const [r]=await db.execute('SELECT v.id_vinculo,v.tipo,v.parentesco,v.puede_recoger,v.restriccion_judicial,v.respaldo_restriccion IS NOT NULL respaldo_documentado,v.fecha_inicio,v.fecha_fin,p.nombre,p.telefono,p.activo FROM menor_persona v JOIN personas p USING(id_persona) WHERE v.id_menor=? ORDER BY v.id_vinculo',[id]);return r.map(v=>({...v,puede_recoger:Boolean(v.puede_recoger),restriccion_judicial:Boolean(v.restriccion_judicial),respaldo_documentado:Boolean(v.respaldo_documentado),activo:Boolean(v.activo)}));}
 export async function badges(db,id){const [r]=await db.execute('SELECT numero,estado,fecha_emision FROM gafetes WHERE id_menor=? ORDER BY numero',[id]);return r;}
 export async function documents(db,id){const [r]=await db.execute('SELECT id_documento,tipo,uso,validado,validado_por,registrado_at FROM documentos_menor WHERE id_menor=? ORDER BY id_documento DESC',[id]);return r;}
+export async function operationalHistory(db,id){
+ const [asistencias]=await db.execute(`SELECT a.id_asistencia,a.fecha,a.ingreso_at,i.id_intento,i.intento_at,i.resultado,i.motivo_rechazo,i.sintomas,i.observaciones inspeccion_observaciones,x.realizada_at,x.tiene_lesiones,x.presenta_sintomas,x.area
+  FROM asistencias a JOIN intentos_ingreso i USING(id_intento) LEFT JOIN inspecciones x USING(id_intento) WHERE a.id_menor=? ORDER BY a.fecha DESC,a.id_asistencia DESC`,[id]);
+ const [lesiones]=await db.execute(`SELECT l.id_lesion,l.id_inspeccion,l.ubicacion,l.descripcion,l.causa_reportada,l.estado
+  FROM lesiones l JOIN inspecciones x USING(id_inspeccion) JOIN intentos_ingreso i USING(id_intento) WHERE i.id_menor=? ORDER BY l.id_lesion DESC`,[id]);
+ const [atenciones]=await db.execute(`SELECT id_atencion,id_asistencia,id_usuario,atendido_at,tipo_incidente,motivo,acciones,observaciones,requiere_recoleccion
+  FROM atenciones_enfermeria WHERE id_menor=? ORDER BY atendido_at DESC,id_atencion DESC`,[id]);
+ const [mediciones]=await db.execute('SELECT id_medicion,id_atencion,id_usuario,fecha,peso_kg,talla_cm,tipo,periodo_mensual FROM mediciones WHERE id_menor=? ORDER BY fecha DESC,id_medicion DESC',[id]);
+ const [medicamentos]=await db.execute(`SELECT a.id_administracion,a.fecha_programada,a.estado,a.resultado,a.motivo_resultado,a.aplicada_at,a.resuelta_at,a.dosis_aplicada,a.observaciones,t.medicamento,t.dosis,t.unidad,t.via,h.hora
+  FROM administraciones_medicamento a JOIN horarios_tratamiento h USING(id_horario) JOIN tratamientos t USING(id_tratamiento) JOIN recetas r USING(id_receta)
+  WHERE r.id_menor=? ORDER BY a.fecha_programada DESC,h.hora DESC,a.id_administracion DESC`,[id]);
+ const [alimentacion]=await db.execute(`SELECT r.id_registro,r.id_asistencia,r.tipo_comida,r.racion,r.observaciones,r.registrado_at,r.id_usuario,p.nombre platillo
+  FROM registros_alimentacion r JOIN asistencias a USING(id_asistencia) LEFT JOIN platillos_comedor p USING(id_platillo) WHERE a.id_menor=? ORDER BY r.registrado_at DESC,r.id_registro DESC`,[id]);
+ const [actividades]=await db.execute(`SELECT a.id_actividad,a.fecha,a.titulo,a.descripcion,p.id_asistencia,p.observaciones participacion
+  FROM actividades_aula a JOIN participaciones_actividad p USING(id_actividad) JOIN asistencias s USING(id_asistencia) WHERE s.id_menor=? ORDER BY a.fecha DESC,a.id_actividad DESC`,[id]);
+ const [salidas]=await db.execute(`SELECT e.id_entrega,e.id_asistencia,e.entregado_at,e.identidad_verificada,e.metodo_verificacion,e.confirmacion,e.nombre_portador_gafete,p.nombre receptor
+  FROM entregas e JOIN asistencias a USING(id_asistencia) LEFT JOIN menor_persona v USING(id_vinculo) LEFT JOIN personas p USING(id_persona) WHERE a.id_menor=? ORDER BY e.entregado_at DESC,e.id_entrega DESC`,[id]);
+ return {asistencias,lesiones,atenciones,mediciones,medicamentos,alimentacion,actividades,salidas};
+}
 export async function auditHistory(db,id){
  const [r]=await db.execute(`SELECT e.id_evento,e.id_usuario,e.entidad,e.entidad_id,e.accion,e.detalle,e.creado_at
  FROM auditoria_eventos e

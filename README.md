@@ -1573,3 +1573,6 @@ INSERT INTO tipos_insumo(nombre,unidad) VALUES
 El contenido obligatorio se consolidó de: (1) *Documentación Técnica e Inicial de Arquitectura*, 5 páginas, con RF-01 a RF-08, RNF-01 a RNF-05, módulos, arquitectura y plan original de cuatro sprints; (2) *Especificación de Requerimientos del Sistema de Guardería*, 7 páginas, transcripción y reglas detalladas de recepción, salud, insumos, personas y horarios; (3) *Planificación Estratégica de Sprints, Épicas e Historias de Usuario*, con HU-01 a HU-12, contratos API, seis fechas y Definition of Done; (4) *schema_completo_v2.sql*, 41 tablas; y (5) *README_esquema_v2.md*, notas de diseño, limitaciones y pruebas pendientes.
 
 **El presente documento reemplaza esos archivos como contexto de implementación para Codex**, pero conserva las ambigüedades identificadas; no convierte decisiones provisionales en requisitos expresos. Codex debe informar las dudas bloqueantes y registrar sus decisiones.
+## Evidencia final del Sprint 6
+
+Consulta [docs/ENTREGA_SPRINT6.md](docs/ENTREGA_SPRINT6.md) para los resultados verificados de pruebas, respaldo/restauracion y rendimiento.

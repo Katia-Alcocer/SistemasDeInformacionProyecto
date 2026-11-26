@@ -42,6 +42,24 @@
   <table><thead><tr><th>Número</th><th>Estado</th><th>Emisión</th></tr></thead><tbody>
   <% reporte.gafetes.forEach(g => { %><tr><td><%= g.numero %></td><td><%= g.estado %></td><td><%= g.fecha_emision %></td></tr><% }) %>
   </tbody></table><% } %>
-  <p class="notice">Documento interno. Incluye metadatos de documentos y no contiene archivos adjuntos ni rutas privadas.</p>
+  <h2>Asistencia e inspecciones</h2>
+  <% if (!reporte.asistencias.length) { %><p>Sin asistencias registradas.</p><% } else { %>
+  <table><thead><tr><th>Fecha</th><th>Ingreso</th><th>Resultado</th><th>Síntomas/lesiones</th><th>Área</th><th>Observaciones</th></tr></thead><tbody>
+  <% reporte.asistencias.forEach(a => { %><tr><td><%= a.fecha %></td><td><%= a.ingreso_at %></td><td><%= a.resultado %></td><td><%= a.presenta_sintomas ? 'Sí' : 'No' %> / <%= a.tiene_lesiones ? 'Sí' : 'No' %></td><td><%= a.area || 'No registrada' %></td><td><%= a.inspeccion_observaciones || a.observaciones || a.motivo_rechazo || '' %></td></tr><% }) %>
+  </tbody></table><% } %>
+  <h2>Incidencias y atención clínica</h2>
+  <% if (!reporte.atenciones.length && !reporte.mediciones.length && !reporte.lesiones.length) { %><p>Sin incidencias clínicas registradas.</p><% } else { %>
+  <% if (reporte.atenciones.length) { %><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Motivo</th><th>Acciones</th><th>Observaciones</th><th>Recolección</th></tr></thead><tbody><% reporte.atenciones.forEach(a => { %><tr><td><%= a.atendido_at %></td><td><%= a.tipo_incidente || 'Atención general' %></td><td><%= a.motivo %></td><td><%= a.acciones || '' %></td><td><%= a.observaciones || '' %></td><td><%= a.requiere_recoleccion ? 'Sí' : 'No' %></td></tr><% }) %></tbody></table><% } %>
+  <% if (reporte.mediciones.length) { %><h3>Mediciones</h3><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Peso kg</th><th>Talla cm</th><th>Periodo</th></tr></thead><tbody><% reporte.mediciones.forEach(m => { %><tr><td><%= m.fecha %></td><td><%= m.tipo %></td><td><%= m.peso_kg %></td><td><%= m.talla_cm %></td><td><%= m.periodo_mensual || '' %></td></tr><% }) %></tbody></table><% } %>
+  <% if (reporte.lesiones.length) { %><h3>Lesiones documentadas</h3><table><thead><tr><th>Ubicación</th><th>Descripción</th><th>Causa reportada</th><th>Estado</th></tr></thead><tbody><% reporte.lesiones.forEach(l => { %><tr><td><%= l.ubicacion %></td><td><%= l.descripcion %></td><td><%= l.causa_reportada || '' %></td><td><%= l.estado || '' %></td></tr><% }) %></tbody></table><% } %><% } %>
+  <h2>Medicamentos</h2>
+  <% if (!reporte.medicamentos.length) { %><p>Sin registros de medicamentos.</p><% } else { %><table><thead><tr><th>Fecha/hora</th><th>Medicamento</th><th>Dosis</th><th>Estado</th><th>Resultado</th><th>Motivo/observaciones</th></tr></thead><tbody><% reporte.medicamentos.forEach(m => { %><tr><td><%= m.fecha_programada %> <%= m.hora %></td><td><%= m.medicamento %></td><td><%= m.dosis %> <%= m.unidad %></td><td><%= m.estado %></td><td><%= m.resultado || '' %></td><td><%= m.motivo_resultado || m.observaciones || '' %></td></tr><% }) %></tbody></table><% } %>
+  <h2>Alimentación y actividades</h2>
+  <% if (!reporte.alimentacion.length && !reporte.actividades.length) { %><p>Sin registros de alimentación o actividades.</p><% } else { %>
+  <% if (reporte.alimentacion.length) { %><h3>Alimentación</h3><table><thead><tr><th>Fecha/hora</th><th>Comida</th><th>Ración</th><th>Platillo</th><th>Observaciones</th></tr></thead><tbody><% reporte.alimentacion.forEach(a => { %><tr><td><%= a.registrado_at %></td><td><%= a.tipo_comida %></td><td><%= a.racion %></td><td><%= a.platillo || 'Sin consumo' %></td><td><%= a.observaciones || '' %></td></tr><% }) %></tbody></table><% } %>
+  <% if (reporte.actividades.length) { %><h3>Actividades</h3><table><thead><tr><th>Fecha</th><th>Actividad</th><th>Descripción</th><th>Observaciones</th></tr></thead><tbody><% reporte.actividades.forEach(a => { %><tr><td><%= a.fecha %></td><td><%= a.titulo %></td><td><%= a.descripcion || '' %></td><td><%= a.participacion || '' %></td></tr><% }) %></tbody></table><% } %><% } %>
+  <h2>Salidas</h2>
+  <% if (!reporte.salidas.length) { %><p>Sin salidas registradas.</p><% } else { %><table><thead><tr><th>Fecha/hora</th><th>Receptor</th><th>Método</th><th>Identidad verificada</th><th>Confirmación</th></tr></thead><tbody><% reporte.salidas.forEach(s => { %><tr><td><%= s.entregado_at %></td><td><%= s.receptor || s.nombre_portador_gafete || 'Gafete' %></td><td><%= s.metodo_verificacion %></td><td><%= s.identidad_verificada ? 'Sí' : 'No' %></td><td><%= s.confirmacion ? 'Sí' : 'No' %></td></tr><% }) %></tbody></table><% } %>
+  <p class="notice">Documento interno de auditoría para ADMIN. Incluye historiales operativos y clínicos autorizados; no contiene archivos adjuntos, rutas privadas, hashes ni credenciales. No acredita integración o envío oficial al DIF.</p>
 </body>
 </html>
